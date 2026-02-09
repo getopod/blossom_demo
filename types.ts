@@ -2,10 +2,18 @@
 export interface JournalEntry {
   strainName: string;
   acquired: boolean;
+  timestamp: number;
   ratings: Record<string, {
     score: number;
     comment: string;
   }>;
+}
+
+export interface FlightRecord {
+  id: string;
+  timestamp: number;
+  effects: string[];
+  strains: Strain[];
 }
 
 export interface UserData {
@@ -22,6 +30,7 @@ export interface UserData {
   };
   effects: string[];
   journal: Record<string, JournalEntry>;
+  flightsHistory: FlightRecord[];
 }
 
 export interface Dispensary {
