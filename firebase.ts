@@ -40,7 +40,7 @@ try {
     console.warn("Firebase: No API Key found in process.env.API_KEY");
   }
 } catch (error) {
-  console.error("Firebase initialization failed:", error);
+  console.error("Firebase failed:", error);
 }
 
 export const auth = authInstance;
@@ -70,8 +70,6 @@ export const logout = async () => {
 
 export const subscribeToAuthChanges = (callback: (user: User | null) => void) => {
   if (!authInstance) {
-    // If no auth, we might be in a demo/key-missing state. 
-    // Just return a dummy unsubscribe.
     return () => {};
   }
   return onAuthStateChanged(authInstance, callback);

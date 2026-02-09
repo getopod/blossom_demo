@@ -97,6 +97,96 @@ export const FALLBACK_STRAINS: StrainWithEffects[] = [
     associatedEffects: ["sleepy", "relaxed", "pain-relief"]
   },
   {
+    name: "Blue Dream",
+    brand: "Blossom Classic",
+    thc: "18%",
+    cbd: "0.1%",
+    terpenes: ["Myrcene", "Pinene", "Limonene"],
+    description: "A legendary hybrid that balances full-body relaxation with gentle cerebral invigoration.",
+    associatedEffects: ["relaxed", "happy", "creative"]
+  },
+  {
+    name: "OG Kush",
+    brand: "Heritage Collection",
+    thc: "22%",
+    cbd: "0.2%",
+    terpenes: ["Myrcene", "Limonene", "Caryophyllene"],
+    description: "The backbone of West Coast cannabis, offering a heavy-hitting, euphoric stress-crusher experience.",
+    associatedEffects: ["relaxed", "happy", "social", "pain-relief"]
+  },
+  {
+    name: "Sour Diesel",
+    brand: "Energy Line",
+    thc: "20%",
+    cbd: "0.1%",
+    terpenes: ["Caryophyllene", "Myrcene", "Limonene"],
+    description: "Fast-acting and energizing, this strain delivers a dreamy cerebral effect that's perfect for daytime.",
+    associatedEffects: ["energetic", "creative", "happy", "focused"]
+  },
+  {
+    name: "Girl Scout Cookies",
+    brand: "Premium Tier",
+    thc: "24%",
+    cbd: "1%",
+    terpenes: ["Caryophyllene", "Limonene", "Humulene"],
+    description: "Famous for sending users to the moon with high-powered euphoria and full-body relaxation.",
+    associatedEffects: ["happy", "relaxed", "pain-relief"]
+  },
+  {
+    name: "Granddaddy Purple",
+    brand: "Nightfall",
+    thc: "19%",
+    cbd: "0.1%",
+    terpenes: ["Myrcene", "Caryophyllene", "Pinene"],
+    description: "A classic indica known for its deep purple hues and powerful ability to induce a restful slumber.",
+    associatedEffects: ["sleepy", "relaxed", "pain-relief"]
+  },
+  {
+    name: "Jack Herer",
+    brand: "Artisan Select",
+    thc: "17%",
+    cbd: "0.1%",
+    terpenes: ["Terpinolene", "Caryophyllene", "Pinene"],
+    description: "A spicy, pine-scented sativa that promotes bliss, clear-headedness, and creative focus.",
+    associatedEffects: ["focused", "creative", "happy", "energetic"]
+  },
+  {
+    name: "Bubba Kush",
+    brand: "Roots",
+    thc: "16%",
+    cbd: "0.1%",
+    terpenes: ["Caryophyllene", "Limonene", "Myrcene"],
+    description: "An indica strain that has gained notoriety for its heavy tranquilizing effects and sweet hashish flavor.",
+    associatedEffects: ["sleepy", "relaxed"]
+  },
+  {
+    name: "Durban Poison",
+    brand: "Pure Sativa",
+    thc: "20%",
+    cbd: "0.1%",
+    terpenes: ["Terpinolene", "Myrcene", "Ocimene"],
+    description: "The perfect daytime companion, known for its sweet smell and energetic, uplifted mood.",
+    associatedEffects: ["energetic", "social", "focused"]
+  },
+  {
+    name: "Gelato",
+    brand: "Dessert Series",
+    thc: "21%",
+    cbd: "0.1%",
+    terpenes: ["Caryophyllene", "Limonene", "Humulene"],
+    description: "A powerhouse hybrid that provides a heavy physical relaxation with a clear-headed mental state.",
+    associatedEffects: ["relaxed", "happy", "creative", "social"]
+  },
+  {
+    name: "Northern Lights",
+    brand: "Legacy",
+    thc: "18%",
+    cbd: "0.5%",
+    terpenes: ["Myrcene", "Caryophyllene", "Limonene"],
+    description: "One of the most famous strains of all time, pure indica cherished for its resinous buds and fast-acting sedation.",
+    associatedEffects: ["sleepy", "relaxed", "pain-relief"]
+  },
+  {
     name: "Wedding Cake",
     brand: "Dessert Series",
     thc: "25%",

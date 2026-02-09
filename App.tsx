@@ -6,14 +6,14 @@ import { findDispensaries, generateFlight } from './geminiService.ts';
 
 // static
 const TERPENE_DATA: Record<string, { desc: string, icon: string }> = {
-  "Myrcene": { desc: "Herbal & earthy. Promotes relaxation and 'couch-lock' effects.", icon: "🌿" },
-  "Limonene": { desc: "Citrusy. Uplifting, mood-enhancing, and stress-relieving.", icon: "🍋" },
-  "Caryophyllene": { desc: "Peppery & spicy. Known for anti-inflammatory and pain-relieving properties.", icon: "🌶️" },
-  "Pinene": { desc: "Pine aroma. May boost alertness and counteract short-term memory loss.", icon: "🌲" },
-  "Linalool": { desc: "Floral & lavender. Deeply calming and helpful for sleep/anxiety.", icon: "🪻" },
-  "Humulene": { desc: "Woody & earthy. Found in hops, may suppress appetite.", icon: "🪵" },
-  "Terpinolene": { desc: "Floral, herbal, & citrus. Often found in Sativas; uplifting yet sedative.", icon: "🌸" },
-  "Ocimene": { desc: "Sweet, woody, & herbal. Associated with antiviral and decongestant effects.", icon: "🍃" }
+  "Myrcene": { desc: "Earthy. Relax & couch-lock.", icon: "🌿" },
+  "Limonene": { desc: "Sharp citrus - lemons. Uplift, enhance mood, & relieve stress.", icon: "🍋" },
+  "Caryophyllene": { desc: "Spice. Anti-inflammatory & pain-relief.", icon: "🌶️" },
+  "Pinene": { desc: "Pine. Alert & remonicent.", icon: "🌲" },
+  "Linalool": { desc: "Lavender. Calm & sleepy.", icon: "🪻" },
+  "Humulene": { desc: "Woody. Social & less hungry.", icon: "🪵" },
+  "Terpinolene": { desc: "Flowers. Uplift yet sedate.", icon: "🌸" },
+  "Ocimene": { desc: "Sweet. Decongest & expand.", icon: "🍃" }
 };
 
 const POPULAR_STRAINS = [
@@ -236,10 +236,6 @@ const App: React.FC = () => {
         <Button onClick={handleDemoMode} variant="demo">
           Demo
         </Button>      
-        <Button onClick={() => signInWithGoogle().catch(handleDemoMode)} variant="outline">
-          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt=""/>
-          Continue with Google
-        </Button>
         <Button onClick={() => setCurrentScreen(Screen.TERPENES_LIBRARY)} variant="outline">
           Terpenes
         </Button>
@@ -278,7 +274,7 @@ const App: React.FC = () => {
                     className="w-full p-4 flex items-center justify-between bg-pink-50/50 hover:bg-pink-50 rounded-xl transition-colors text-left"
                   >
                     <span className="font-bold text-slate-800 text-sm">{s}</span>
-                    <span className="text-pink-500 font-black text-[9px] uppercase tracking-widest">Find Near Me</span>
+                    <span className="text-pink-500 font-black text-[9px] uppercase tracking-widest">Buy</span>
                   </button>
                 ))
               ) : (
@@ -355,7 +351,6 @@ const App: React.FC = () => {
         <span className="text-5xl animate-bounce">📍</span>
       </div>
       <h2 className="font-serif text-3xl mb-4 text-slate-900">Where are you?</h2>
-      <p className="text-slate-400 text-sm mb-10">We need your location to find strains at nearby dispensaries.</p>
       <Button onClick={handleLocationFetch} disabled={loading}>
         {loading ? <LoadingIndicator message="" /> : 'Enable Location'}
       </Button>
@@ -440,7 +435,7 @@ const App: React.FC = () => {
                     <p className="text-slate-500 text-sm leading-relaxed italic">"{s.description}"</p>
                     
                     <div className="space-y-2">
-                       <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Terpenes (Tap for details)</p>
+                       <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Terpenes</p>
                        <div className="flex flex-wrap gap-2">
                         {s.terpenes.map(t => {
                           const terpKey = `${i}-${t}`;
@@ -610,7 +605,7 @@ const App: React.FC = () => {
               <div className="p-6 space-y-4">
                 {historySubTab === 'recent' && (
                   <>
-                    {recentEntries.length === 0 ? <p className="text-center text-slate-300 italic text-xs py-10">No entries yet.</p> : 
+                    {recentEntries.length === 0 ? <p className="text-center text-slate-300 italic text-xs py-10">Nothing...</p> : 
                       recentEntries.map(entry => {
                         const ratedValues = Object.values(entry.ratings).filter(r => r.score > 0);
                         const avg = ratedValues.length > 0 ? (ratedValues.reduce((a, b) => a + b.score, 0) / ratedValues.length).toFixed(1) : '—';
@@ -630,11 +625,11 @@ const App: React.FC = () => {
 
                 {historySubTab === 'tried' && (
                   <>
-                    {triedStrains.length === 0 ? <p className="text-center text-slate-300 italic text-xs py-10">Nothing in your bag yet.</p> : 
+                    {triedStrains.length === 0 ? <p className="text-center text-slate-300 italic text-xs py-10">Nothing...</p> : 
                       triedStrains.map(entry => (
                         <div key={entry.strainName} className="p-5 rounded-3xl border border-pink-100 bg-white shadow-sm flex items-center justify-between">
                           <h4 className="font-bold text-slate-900">{entry.strainName}</h4>
-                          <span className="text-[9px] font-black uppercase text-emerald-500 bg-emerald-50 px-2 py-1 rounded-lg">Acquired</span>
+                          <span className="text-[9px] font-black uppercase text-emerald-500 bg-emerald-50 px-2 py-1 rounded-lg">Tried</span>
                         </div>
                       ))
                     }
@@ -665,7 +660,7 @@ const App: React.FC = () => {
 
                 {historySubTab === 'ratings' && (
                   <div className="space-y-6 pt-4">
-                    {Object.keys(averageRatings).length === 0 ? <p className="text-center text-slate-300 italic text-xs py-10">Add ratings to see averages.</p> : 
+                    {Object.keys(averageRatings).length === 0 ? <p className="text-center text-slate-300 italic text-xs py-10">Add ratings for averages.</p> : 
                       Object.entries(averageRatings).map(([effect, avg]) => (
                         <div key={effect} className="space-y-2">
                           <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-slate-500">
@@ -715,7 +710,7 @@ const App: React.FC = () => {
     };
     return (
       <div className="h-full flex flex-col p-8 bg-white animate-fade-in">
-        <h2 className="font-serif text-3xl mb-2 text-slate-900">How do you want to feel?</h2>
+        <h2 className="font-serif text-2xl mb-2 text-slate-900">How do you want to feel?</h2>
         <div className="flex-1 grid grid-cols-2 gap-4 overflow-y-auto no-scrollbar pb-6">
           {options.map(o => (
             <button 
@@ -752,7 +747,7 @@ const App: React.FC = () => {
               <a href={d.uri} target="_blank" rel="noopener noreferrer" className="inline-block mt-3 text-pink-600 text-xs font-black uppercase tracking-widest hover:underline">Show on Map →</a>
             )}
           </div>
-        )) : <p className="text-center text-slate-300 italic py-10">No nearby dispensaries found.</p>}
+        )) : <p className="text-center text-slate-300 italic py-10">Nothing...</p>}
       </div>
     </div>
   );
@@ -761,17 +756,16 @@ const App: React.FC = () => {
     <div className="p-20 text-center h-full flex flex-col items-center justify-center bg-white animate-fade-in">
       <Logo color="#ef4444" />
       <h2 className="font-serif text-3xl mt-10 text-slate-900">21+ Only</h2>
-      <p className="text-slate-400 mt-4 text-sm">Blossom is strictly for individuals aged 21 and over.</p>
+      <p className="text-slate-400 mt-4 text-sm">Blossom is for adults.</p>
       <Button variant="danger" className="mt-12" onClick={() => { logout(); setCurrentScreen(Screen.AUTH); }}>Exit</Button>
     </div>
   );
 
   const FeedbackScreen = () => (
     <div className="p-10 h-full flex flex-col items-center justify-center animate-fade-in">
-       <div className="w-20 h-20 bg-indigo-50 text-indigo-500 rounded-full flex items-center justify-center text-3xl mb-8">📬</div>
-       <h2 className="font-serif text-2xl mb-2 text-slate-900">Got Feedback?</h2>
-       <p className="text-slate-400 text-center mb-10 text-sm">We'd love to hear how we can improve your vibe.</p>
-       <Button onClick={() => setCurrentScreen(Screen.HOME)}>Back to Home</Button>
+       <h2 className="font-serif text-2xl mb-2 text-slate-900">Feedback?</h2>
+       <p className="text-slate-400 text-center mb-10 text-sm">We'd love to hear from you.</p>
+       <Button onClick={() => setCurrentScreen(Screen.HOME)}>Back</Button>
     </div>
   );
 
@@ -800,11 +794,10 @@ const App: React.FC = () => {
         {showClearConfirm && (
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-8 animate-in fade-in">
             <div className="bg-white rounded-[2.5rem] p-8 w-full max-w-[300px] shadow-2xl space-y-6 text-center">
-              <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto text-3xl shadow-inner">🗑️</div>
-              <h3 className="font-serif text-2xl text-slate-900">Reset Data?</h3>
-              <p className="text-slate-400 text-sm">This will clear your journal and flight history forever.</p>
+              <h3 className="font-serif text-2xl text-slate-900">Reset?</h3>
+              <p className="text-slate-400 text-sm">This clear your journal & history.</p>
               <div className="space-y-3">
-                <Button variant="danger" onClick={() => { setUser(u => u ? ({...u, journal: {}, flightsHistory: []}) : null); setShowClearConfirm(false); }}>Reset All</Button>
+                <Button variant="danger" onClick={() => { setUser(u => u ? ({...u, journal: {}, flightsHistory: []}) : null); setShowClearConfirm(false); }}>Reset?</Button>
                 <Button variant="outline" onClick={() => setShowClearConfirm(false)}>Cancel</Button>
               </div>
             </div>
