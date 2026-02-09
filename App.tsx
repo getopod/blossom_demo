@@ -69,6 +69,7 @@ const App: React.FC = () => {
   const [dispensaries, setDispensaries] = useState<Dispensary[]>([]);
   const [selectedDispensary, setSelectedDispensary] = useState<Dispensary | null>(null);
   const [flight, setFlight] = useState<Strain[]>([]);
+  const [profileTab, setProfileTab] = useState<'settings' | 'journal'>('journal');
 
   useEffect(() => {
     const unsubscribe = subscribeToAuthChanges((firebaseUser) => {
@@ -83,7 +84,7 @@ const App: React.FC = () => {
           effects: [],
           journal: {}
         });
-        setCurrentScreen(Screen.ONBOARDING);
+        setCurrentScreen(Screen.HOME);
       }
     });
     return () => unsubscribe();
@@ -100,7 +101,7 @@ const App: React.FC = () => {
       effects: [],
       journal: {}
     });
-    setCurrentScreen(Screen.ONBOARDING);
+    setCurrentScreen(Screen.HOME);
   };
 
   const handleAgeCheck = () => {
@@ -165,6 +166,8 @@ const App: React.FC = () => {
     }
   };
 
+  // --- Screens ---
+
   const AuthScreen = () => (
     <div className="h-full flex flex-col justify-center items-center px-10 bg-white text-center">
       <div className="mb-10"><Logo size={110} /></div>
@@ -185,11 +188,115 @@ const App: React.FC = () => {
     </div>
   );
 
+  const HomeScreen = () => (
+    <div className="h-full flex flex-col justify-center items-center px-10 bg-white text-center">
+      <div className="mb-10"><Logo size={90} /></div>
+      <h1 className="font-serif text-4xl mb-2 tracking-tight text-slate-900">Welcome back</h1>
+      <p className="text-slate-400 mb-12 text-sm leading-relaxed">Ready for your next journey?</p>
+      
+      <div className="w-full space-y-4">
+        <Button onClick={() => {
+          if (!user?.age || !user?.sex) {
+            setCurrentScreen(Screen.ONBOARDING);
+          } else if (!user?.location) {
+            setCurrentScreen(Screen.LOCATION);
+          } else {
+            setCurrentScreen(Screen.EFFECTS);
+          }
+        }} variant="primary">
+          Explore
+        </Button>
+        <Button onClick={() => {
+          setProfileTab('journal');
+          setCurrentScreen(Screen.PROFILE);
+        }} variant="outline">
+          Journal
+        </Button>
+        <Button onClick={() => setCurrentScreen(Screen.TERPENES_LIBRARY)} variant="ghost">
+          Terpenes
+        </Button>
+      </div>
+
+      <div className="mt-12 flex items-center gap-3">
+        <div className="w-8 h-8 rounded-full overflow-hidden border border-slate-100">
+          <img src={user?.photoURL} alt="" className="w-full h-full object-cover" />
+        </div>
+        <span className="text-xs font-bold text-slate-400">{user?.displayName}</span>
+      </div>
+    </div>
+  );
+
+  const FeedbackScreen = () => {
+    const [category, setCategory] = useState<string>('Bug');
+    const [comment, setComment] = useState<string>('');
+    const [sent, setSent] = useState(false);
+
+    const handleSend = () => {
+      setLoading(true);
+      setTimeout(() => {
+        setLoading(false);
+        setSent(true);
+      }, 1000);
+    };
+
+    if (sent) {
+      return (
+        <div className="h-full flex flex-col justify-center items-center px-10 text-center bg-white">
+          <div className="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mb-8 text-3xl">✨</div>
+          <h2 className="font-serif text-3xl mb-4 text-slate-900">Thank you!</h2>
+          <p className="text-slate-400 mb-12 text-sm leading-relaxed">Your feedback helps blossom grow. We've received your {category.toLowerCase()} report.</p>
+          <Button onClick={() => setCurrentScreen(Screen.FLIGHT)} variant="secondary">Back to Flight</Button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="h-full flex flex-col bg-white overflow-hidden">
+        <div className="p-8 border-b border-slate-100 flex items-center justify-between sticky top-0 z-10 bg-white">
+          <h2 className="font-serif text-3xl text-slate-900">Help & Feedback</h2>
+          <button onClick={() => setCurrentScreen(Screen.FLIGHT)} className="w-10 h-10 flex items-center justify-center rounded-full bg-slate-50 text-slate-400">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-8 space-y-8 no-scrollbar">
+          <div className="space-y-4">
+            <label className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">Category</label>
+            <div className="grid grid-cols-2 gap-3">
+              {['Bug', 'UI', 'Science', 'Request'].map(c => (
+                <button 
+                  key={c}
+                  onClick={() => setCategory(c)}
+                  className={`py-4 rounded-2xl border-2 font-bold text-xs transition-all ${category === c ? 'border-pink-600 bg-pink-50 text-pink-600' : 'border-slate-50 bg-slate-50 text-slate-400'}`}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-4">
+            <label className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">Details</label>
+            <textarea 
+              placeholder="Tell us what's on your mind..."
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              className="w-full p-6 bg-slate-50 border border-slate-100 rounded-[2rem] h-48 outline-none focus:border-pink-500 focus:bg-white transition-all text-sm resize-none"
+            />
+          </div>
+        </div>
+        <div className="p-8 border-t border-slate-100 bg-white">
+          <Button disabled={!comment.trim() || loading} onClick={handleSend}>
+            {loading ? 'Sending...' : 'Submit Feedback'}
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
   const TerpenesLibraryScreen = () => (
     <div className="h-full flex flex-col bg-white overflow-hidden">
       <div className="p-8 border-b border-slate-100 flex items-center justify-between sticky top-0 z-10 bg-white">
         <h2 className="font-serif text-3xl text-slate-900">Terpene Guide</h2>
-        <button onClick={() => setCurrentScreen(user ? Screen.FLIGHT : Screen.AUTH)} className="w-10 h-10 flex items-center justify-center rounded-full bg-slate-50 text-slate-400">
+        <button onClick={() => setCurrentScreen(user ? Screen.HOME : Screen.AUTH)} className="w-10 h-10 flex items-center justify-center rounded-full bg-slate-50 text-slate-400">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
         </button>
       </div>
@@ -221,7 +328,7 @@ const App: React.FC = () => {
     return (
       <div className="h-full flex flex-col p-8 bg-white">
         <div className="mb-12">
-          <h2 className="font-serif text-3xl mb-2 text-slate-900">Who are you?</h2>
+          <h2 className="font-serif text-3xl mb-2 text-slate-900">Bio Profile</h2>
         </div>
         <div className="flex-1 space-y-10">
           <div className="space-y-4">
@@ -235,9 +342,9 @@ const App: React.FC = () => {
             />
           </div>
           <div className="space-y-4">
-            <label className="text-[10px] uppercase font-black text-slate-300 tracking-[0.2em]">Sex</label>
-            <div className="grid grid-cols-3 gap-4">
-              {['Female', 'Male', 'No'].map(s => (
+            <label className="text-[10px] uppercase font-black text-slate-300 tracking-[0.2em]">Sex assigned at birth</label>
+            <div className="grid grid-cols-2 gap-4">
+              {['Female', 'Male'].map(s => (
                 <button 
                   key={s}
                   onClick={() => setUser(u => u ? ({...u, sex: s}) : null)}
@@ -259,8 +366,8 @@ const App: React.FC = () => {
       <div className="w-28 h-28 bg-rose-50 rounded-full flex items-center justify-center mb-10 shadow-inner">
         <span className="text-5xl animate-bounce">📍</span>
       </div>
-      <h2 className="font-serif text-3xl mb-4 text-slate-900">Location</h2>
-      <p className="text-slate-400 text-sm mb-12 leading-relaxed">We need this to give real advice.</p>
+      <h2 className="font-serif text-3xl mb-4 text-slate-900">Location Access</h2>
+      <p className="text-slate-400 text-sm mb-12 leading-relaxed">We scan real-time inventory to curate your flight.</p>
       <Button onClick={handleLocationFetch} disabled={loading}>
         {loading ? <LoadingIndicator message="" /> : 'Enable Location'}
       </Button>
@@ -288,6 +395,7 @@ const App: React.FC = () => {
     return (
       <div className="h-full flex flex-col p-8 bg-white">
         <h2 className="font-serif text-3xl mb-2 text-slate-900">How do you want to feel?</h2>
+        <p className="text-slate-400 text-sm mb-8">Choose up to 4 effects.</p>
         <div className="flex-1 grid grid-cols-2 gap-4 overflow-y-auto no-scrollbar pb-6">
           {options.map(o => (
             <button 
@@ -308,7 +416,7 @@ const App: React.FC = () => {
   const DispensaryListScreen = () => (
     <div className="h-full flex flex-col bg-slate-50">
       <div className="p-8 bg-white border-b border-slate-100 flex justify-between items-center">
-        <h2 className="font-serif text-3xl text-slate-900">Dispensaries</h2>
+        <h2 className="font-serif text-3xl text-slate-900">Nearby Shops</h2>
       </div>
       <div className="flex-1 overflow-y-auto p-5 space-y-4 no-scrollbar">
         {dispensaries.map(d => (
@@ -327,13 +435,12 @@ const App: React.FC = () => {
               <span>({d.reviewsCount})</span>
             </div>
             <div className="text-[10px] text-slate-300 mb-2">{d.address}</div>
-            {/* Displaying grounding link as required by Gemini grounding guidelines */}
             {d.uri && (
               <a 
                 href={d.uri} 
                 target="_blank" 
                 rel="noopener noreferrer" 
-                className="text-pink-600 underline text-[10px] font-bold block transition-opacity hover:opacity-70"
+                className="text-pink-600 underline text-[10px] font-bold block"
                 onClick={(e) => e.stopPropagation()}
               >
                 View on Google Maps
@@ -351,7 +458,7 @@ const App: React.FC = () => {
   const LoadingScreen = () => (
     <div className="h-full flex flex-col justify-center items-center p-12 bg-white text-center">
       <Logo size={90} />
-      <div className="mt-12"><LoadingIndicator message="Doing Some Magic..." /></div>
+      <div className="mt-12"><LoadingIndicator message="Finding your match..." /></div>
     </div>
   );
 
@@ -372,14 +479,9 @@ const App: React.FC = () => {
           <div>
             <h2 className="font-serif text-3xl text-slate-900">Your Flight</h2>
           </div>
-          <div className="flex gap-2">
-            <button onClick={() => setCurrentScreen(Screen.TERPENES_LIBRARY)} className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-xl shadow-sm border border-slate-100">
-              📚
-            </button>
-            <button onClick={() => setCurrentScreen(Screen.PROFILE)} className="w-12 h-12 rounded-2xl overflow-hidden border-2 border-pink-50 transition-transform active:scale-90">
-              <img src={user?.photoURL} alt="" className="w-full h-full object-cover" />
-            </button>
-          </div>
+          <button onClick={() => setCurrentScreen(Screen.PROFILE)} className="w-12 h-12 rounded-2xl overflow-hidden border-2 border-pink-50">
+            <img src={user?.photoURL} alt="" className="w-full h-full object-cover" />
+          </button>
         </div>
         <div className="flex-1 overflow-y-auto p-6 space-y-4 no-scrollbar">
           {flight.map((s, i) => {
@@ -408,7 +510,7 @@ const App: React.FC = () => {
                     <p className="text-slate-500 text-sm leading-relaxed italic">"{s.description}"</p>
                     <div className="flex flex-wrap gap-2">
                       {s.terpenes.map(t => {
-                        const info = TERPENE_DATA[t] || { icon: "✨", desc: "A minor terpene adding to the entourage effect." };
+                        const info = TERPENE_DATA[t] || { icon: "✨", desc: "Entourage effect terpene." };
                         const isTerpExp = expandedTerpene === `${i}-${t}`;
                         return (
                           <div key={t} className="flex flex-col">
@@ -436,15 +538,29 @@ const App: React.FC = () => {
             );
           })}
         </div>
+        
+        {/* New 3-Button Navigation Row */}
         <div className="p-8 bg-white border-t border-slate-100">
-          <Button onClick={() => setCurrentScreen(Screen.PROFILE)}>View Journal & Rates</Button>
+          <div className="flex gap-3">
+            <Button onClick={() => setCurrentScreen(Screen.HOME)} variant="outline" className="flex-1 py-3 px-0 text-xs">
+              Again
+            </Button>
+            <Button onClick={() => {
+              setProfileTab('journal');
+              setCurrentScreen(Screen.PROFILE);
+            }} variant="primary" className="flex-1 py-3 px-0 text-xs">
+              Journal
+            </Button>
+            <Button onClick={() => setCurrentScreen(Screen.FEEDBACK)} variant="ghost" className="flex-1 py-3 px-0 text-xs">
+              Help
+            </Button>
+          </div>
         </div>
       </div>
     );
   };
 
   const ProfileScreen = () => {
-    const [tab, setTab] = useState<'settings' | 'journal'>('journal');
     const [isEditing, setIsEditing] = useState(false);
     const [editData, setEditData] = useState(user);
     const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -492,9 +608,8 @@ const App: React.FC = () => {
 
     return (
       <div className="h-full flex flex-col bg-white overflow-hidden relative">
-        {/* header */}
         <div className="p-8 bg-slate-900 text-white text-center relative overflow-hidden">
-          <button onClick={() => setCurrentScreen(Screen.FLIGHT)} className="absolute left-8 top-10 text-white/50 hover:text-white transition-colors">
+          <button onClick={() => setCurrentScreen(Screen.HOME)} className="absolute left-8 top-10 text-white/50 hover:text-white transition-colors">
              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
           </button>
           <div className="w-20 h-20 rounded-[1.8rem] border-4 border-white/10 mx-auto mb-4 overflow-hidden shadow-2xl">
@@ -502,17 +617,16 @@ const App: React.FC = () => {
           </div>
           <h2 className="font-serif text-2xl mb-1">{user?.displayName}</h2>
           
-          {/* tabs */}
           <div className="mt-8 flex bg-white/5 rounded-2xl p-1 relative z-10">
             <button 
-              onClick={() => setTab('journal')} 
-              className={`flex-1 py-2 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${tab === 'journal' ? 'bg-white text-slate-900 shadow-lg' : 'text-white/40'}`}
+              onClick={() => setProfileTab('journal')} 
+              className={`flex-1 py-2 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${profileTab === 'journal' ? 'bg-white text-slate-900 shadow-lg' : 'text-white/40'}`}
             >
               Journal
             </button>
             <button 
-              onClick={() => setTab('settings')} 
-              className={`flex-1 py-2 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${tab === 'settings' ? 'bg-white text-slate-900 shadow-lg' : 'text-white/40'}`}
+              onClick={() => setProfileTab('settings')} 
+              className={`flex-1 py-2 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${profileTab === 'settings' ? 'bg-white text-slate-900 shadow-lg' : 'text-white/40'}`}
             >
               Settings
             </button>
@@ -520,7 +634,7 @@ const App: React.FC = () => {
         </div>
 
         <div className="flex-1 overflow-y-auto no-scrollbar">
-          {tab === 'settings' ? (
+          {profileTab === 'settings' ? (
             <div className="p-8 space-y-8">
               {isEditing ? (
                 <div className="space-y-6">
@@ -600,7 +714,6 @@ const App: React.FC = () => {
 
                     {entry.acquired && (
                       <div className="space-y-6 mt-6 pt-6 border-t border-pink-50 animate-in fade-in">
-                        {/* Collapsible Details */}
                         <div className="bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden">
                           <button 
                             onClick={() => setExpandedDetails(isDetExpanded ? null : s.name)}
@@ -658,18 +771,17 @@ const App: React.FC = () => {
           )}
         </div>
 
-        {/* Clear Confirm Modal */}
         {showClearConfirm && (
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-8 animate-in fade-in">
             <div className="bg-white rounded-[2.5rem] p-8 w-full max-w-[300px] shadow-2xl space-y-6 text-center animate-in zoom-in-95">
               <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto text-3xl">🗑️</div>
               <div>
                 <h3 className="font-serif text-2xl text-slate-900 mb-2">Clear Journal?</h3>
-                <p className="text-slate-400 text-sm leading-relaxed">This will delete all your session notes forever. You can't undo this.</p>
+                <p className="text-slate-400 text-sm leading-relaxed">This will delete all your notes.</p>
               </div>
               <div className="space-y-3">
-                <Button variant="danger" onClick={clearJournal}>Yes, Clear Everything</Button>
-                <Button variant="outline" onClick={() => setShowClearConfirm(false)}>Keep It</Button>
+                <Button variant="danger" onClick={clearJournal}>Clear Everything</Button>
+                <Button variant="outline" onClick={() => setShowClearConfirm(false)}>Cancel</Button>
               </div>
             </div>
           </div>
@@ -682,9 +794,9 @@ const App: React.FC = () => {
     <div className="fixed inset-0 bg-slate-100 flex items-center justify-center p-0 md:p-10">
       <div className="w-full h-full md:w-[375px] md:h-[667px] bg-white md:rounded-[3.5rem] shadow-2xl overflow-hidden relative flex flex-col border border-slate-200/50">
         {renderScreen(currentScreen, {
-          AuthScreen, OnboardingScreen, LocationScreen, 
+          AuthScreen, HomeScreen, OnboardingScreen, LocationScreen, 
           EffectsScreen, DispensaryListScreen, LoadingScreen, FlightScreen, 
-          ProfileScreen, BlockedScreen, TerpenesLibraryScreen
+          ProfileScreen, BlockedScreen, TerpenesLibraryScreen, FeedbackScreen
         })}
       </div>
     </div>
@@ -694,6 +806,7 @@ const App: React.FC = () => {
 function renderScreen(current: Screen, components: any) {
   switch (current) {
     case Screen.AUTH: return <components.AuthScreen />;
+    case Screen.HOME: return <components.HomeScreen />;
     case Screen.ONBOARDING: return <components.OnboardingScreen />;
     case Screen.LOCATION: return <components.LocationScreen />;
     case Screen.EFFECTS: return <components.EffectsScreen />;
@@ -703,6 +816,7 @@ function renderScreen(current: Screen, components: any) {
     case Screen.PROFILE: return <components.ProfileScreen />;
     case Screen.BLOCKED: return <components.BlockedScreen />;
     case Screen.TERPENES_LIBRARY: return <components.TerpenesLibraryScreen />;
+    case Screen.FEEDBACK: return <components.FeedbackScreen />;
     default: return <components.AuthScreen />;
   }
 }

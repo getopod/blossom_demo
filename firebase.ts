@@ -1,6 +1,6 @@
 
 import { initializeApp } from 'firebase/app';
-// Consolidate imports from 'firebase/auth' to fix resolution errors and improve compatibility
+// Separate type and value imports from 'firebase/auth' to fix resolution errors in some environments
 import { 
   getAuth, 
   GoogleAuthProvider, 
@@ -8,9 +8,9 @@ import {
   OAuthProvider,
   signInWithPopup,
   signOut,
-  onAuthStateChanged,
-  type User
+  onAuthStateChanged
 } from 'firebase/auth';
+import type { User } from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: process.env.API_KEY,

@@ -45,6 +45,7 @@ export interface Strain {
 
 export enum Screen {
   AUTH = 'auth',
+  HOME = 'home',
   ONBOARDING = 'onboarding',
   LOCATION = 'location',
   EFFECTS = 'effects',
@@ -53,5 +54,6 @@ export enum Screen {
   FLIGHT = 'flight',
   PROFILE = 'profile',
   BLOCKED = 'blocked',
-  TERPENES_LIBRARY = 'terpenes_library'
+  TERPENES_LIBRARY = 'terpenes_library',
+  FEEDBACK = 'feedback'
 }
