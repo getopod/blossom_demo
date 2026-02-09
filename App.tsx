@@ -74,9 +74,11 @@ const App: React.FC = () => {
   const [dispensaries, setDispensaries] = useState<Dispensary[]>([]);
   const [flight, setFlight] = useState<Strain[]>([]);
   const [profileTab, setProfileTab] = useState<'history' | 'profile'>('history');
-  const [historyTab, setHistoryTab] = useState<'tried' | 'flights' | 'ratings' | 'recent'>('recent');
+  const [historySubTab, setHistorySubTab] = useState<'tried' | 'flights' | 'ratings' | 'recent'>('recent');
   const [searchingForStrain, setSearchingForStrain] = useState<string | null>(null);
   const [strainSearchQuery, setStrainSearchQuery] = useState('');
+  // Fix: Lifted showClearConfirm state from ProfileScreen to App scope so it is accessible in the main render return.
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   useEffect(() => {
     const unsubscribe = subscribeToAuthChanges((firebaseUser) => {
@@ -118,7 +120,7 @@ const App: React.FC = () => {
     const userData: UserData = {
       uid: 'demo-user',
       email: 'demo@blossom.wack',
-      displayName: 'Demo User',
+      displayName: 'Demo',
       photoURL: 'https://api.dicebear.com/7.x/avataaars/svg?seed=demo',
       age: null,
       sex: '',
@@ -170,7 +172,6 @@ const App: React.FC = () => {
     try {
       const results = await generateFlight(user.effects);
       setFlight(results);
-      
       const newJournal: Record<string, JournalEntry> = { ...user.journal };
       results.forEach(s => {
         if (!newJournal[s.name]) {
@@ -185,7 +186,7 @@ const App: React.FC = () => {
           };
         }
       });
-
+      
       const newFlightRecord: FlightRecord = {
         id: Math.random().toString(36).substr(2, 9),
         timestamp: Date.now(),
@@ -195,8 +196,8 @@ const App: React.FC = () => {
 
       setUser({ 
         ...user, 
-        journal: newJournal, 
-        flightsHistory: [newFlightRecord, ...user.flightsHistory] 
+        journal: newJournal,
+        flightsHistory: [newFlightRecord, ...(user.flightsHistory || [])]
       });
       setCurrentScreen(Screen.FLIGHT);
     } catch (e) {
@@ -230,18 +231,18 @@ const App: React.FC = () => {
 
   const AuthScreen = () => (
     <div className="h-full flex flex-col justify-center items-center px-10 bg-white text-center">
-      <div className="mb-10 animate-fade-in"><Logo size={110} /></div>
-      <h1 className="font-serif text-5xl mb-4 tracking-tight text-slate-900 animate-fade-in">Blossom</h1>
-      <div className="w-full space-y-3 animate-fade-in" style={{ animationDelay: '0.1s' }}>
+      <div className="mb-10"><Logo size={110} /></div>
+      <h1 className="font-serif text-5xl mb-4 tracking-tight text-slate-900">Blossom</h1>
+      <div className="w-full space-y-3">
         <Button onClick={handleDemoMode} variant="demo">
-          Try Demo
+          Demo
         </Button>      
         <Button onClick={() => signInWithGoogle().catch(handleDemoMode)} variant="outline">
           <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt=""/>
           Continue with Google
         </Button>
         <Button onClick={() => setCurrentScreen(Screen.TERPENES_LIBRARY)} variant="outline">
-          Terpene Library
+          Terpenes
         </Button>
       </div>
     </div>
@@ -258,7 +259,7 @@ const App: React.FC = () => {
           <div className="relative">
             <input 
               type="text" 
-              placeholder="Search strains..." 
+              placeholder="Strains..." 
               value={strainSearchQuery}
               onChange={(e) => setStrainSearchQuery(e.target.value)}
               className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:border-pink-500 focus:bg-white transition-all text-sm font-medium"
@@ -288,17 +289,17 @@ const App: React.FC = () => {
           )}
         </div>
 
-        <div className="flex-1 flex flex-col justify-center items-center px-10 text-center animate-fade-in">
+        <div className="flex-1 flex flex-col justify-center items-center px-10 text-center">
           <div className="mb-10"><Logo size={90} /></div>   
           <div className="w-full space-y-4">
             <Button onClick={() => setCurrentScreen(Screen.EFFECTS)} variant="primary">
-              Curation
+              Explore
             </Button>
             <Button onClick={() => {
               setProfileTab('history');
               setCurrentScreen(Screen.PROFILE);
             }} variant="outline">
-              History
+              Journal
             </Button>
             <Button onClick={() => setCurrentScreen(Screen.TERPENES_LIBRARY)} variant="outline">
               Terpenes
@@ -308,6 +309,78 @@ const App: React.FC = () => {
       </div>
     );
   };
+
+  const OnboardingScreen = () => {
+    const isReady = user?.age && user?.sex;
+    return (
+      <div className="h-full flex flex-col p-8 bg-white">
+        <div className="mb-12">
+          <h2 className="font-serif text-3xl mb-2 text-slate-900">Who are you?</h2>
+        </div>
+        <div className="flex-1 space-y-10">
+          <div className="space-y-4">
+            <label className="text-[10px] uppercase font-black text-slate-300 tracking-[0.2em]">Age</label>
+            <input 
+              type="number" 
+              placeholder="" 
+              className="w-full p-5 bg-slate-50 border border-slate-100 rounded-3xl outline-none focus:border-pink-500 transition-all text-xl font-medium"
+              value={user?.age || ''}
+              onChange={(e) => setUser(u => u ? ({...u, age: parseInt(e.target.value)}) : null)}
+            />
+          </div>
+          <div className="space-y-4">
+            <label className="text-[10px] uppercase font-black text-slate-300 tracking-[0.2em]">Sex</label>
+            <div className="grid grid-cols-3 gap-4">
+              {['Female', 'Male', 'No'].map(s => (
+                <button 
+                  key={s}
+                  onClick={() => setUser(u => u ? ({...u, sex: s}) : null)}
+                  className={`py-5 rounded-3xl border-2 transition-all font-bold text-sm ${user?.sex === s ? 'border-pink-600 bg-pink-50 text-pink-600 shadow-md' : 'border-slate-50 bg-slate-50 text-slate-400'}`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <Button disabled={!isReady} onClick={handleAgeCheck}>Continue</Button>
+      </div>
+    );
+  };
+
+  const LocationScreen = () => (
+    <div className="h-full flex flex-col p-10 bg-white text-center justify-center items-center">
+      <div className="w-28 h-28 bg-rose-50 rounded-full flex items-center justify-center mb-10 shadow-inner">
+        <span className="text-5xl animate-bounce">📍</span>
+      </div>
+      <h2 className="font-serif text-3xl mb-4 text-slate-900">Where are you?</h2>
+      <Button onClick={handleLocationFetch} disabled={loading}>
+        {loading ? <LoadingIndicator message="" /> : 'Enable Location'}
+      </Button>
+    </div>
+  );
+
+  const TerpenesLibraryScreen = () => (
+    <div className="h-full flex flex-col bg-white overflow-hidden">
+      <div className="p-8 border-b border-slate-100 flex items-center justify-between sticky top-0 z-10 bg-white">
+        <h2 className="font-serif text-3xl text-slate-900">Terpenes</h2>
+        <button onClick={() => setCurrentScreen(user ? Screen.HOME : Screen.AUTH)} className="w-9 h-9 flex items-center justify-center rounded-full bg-slate-50 text-slate-400">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto p-3 space-y-3 no-scrollbar">
+        {Object.entries(TERPENE_DATA).map(([name, data]) => (
+          <div key={name} className="p-6 rounded-[2.5rem] bg-slate-50 border border-slate-100">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-3xl">{data.icon}</span>
+              <h3 className="text-xl font-bold text-slate-800">{name}</h3>
+            </div>
+            <p className="text-slate-500 text-sm leading-relaxed">{data.desc}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 
   const FlightScreen = () => {
     const [expandedStrains, setExpandedStrains] = useState<Set<number>>(new Set());
@@ -330,9 +403,11 @@ const App: React.FC = () => {
 
     return (
       <div className="h-full flex flex-col bg-white">
-        <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0 z-10 shadow-sm">
-          <h2 className="font-serif text-3xl text-slate-900">Your Flight</h2>
-          <button onClick={() => setCurrentScreen(Screen.PROFILE)} className="w-10 h-10 rounded-2xl overflow-hidden border-2 border-pink-50 shadow-sm">
+        <div className="p-8 border-b border-slate-100 flex justify-between items-end bg-white sticky top-0 z-10">
+          <div>
+            <h2 className="font-serif text-3xl text-slate-900">Your Flight</h2>
+          </div>
+          <button onClick={() => setCurrentScreen(Screen.PROFILE)} className="w-12 h-12 rounded-2xl overflow-hidden border-2 border-pink-50">
             <img src={user?.photoURL} alt="" className="w-full h-full object-cover" />
           </button>
         </div>
@@ -340,7 +415,7 @@ const App: React.FC = () => {
           {flight.map((s, i) => {
             const isExpanded = expandedStrains.has(i);
             return (
-              <div key={i} className={`bg-slate-50 rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden transition-all duration-300 ${isExpanded ? 'ring-2 ring-pink-100 bg-white' : ''}`}>
+              <div key={i} className={`bg-slate-50 rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden transition-all duration-300 ${isExpanded ? 'bg-white ring-2 ring-pink-100' : ''}`}>
                 <button 
                   onClick={() => toggleStrain(i)}
                   className="w-full p-7 flex items-center justify-between"
@@ -349,38 +424,38 @@ const App: React.FC = () => {
                     <div className="w-9 h-9 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs shadow-lg">{i+1}</div>
                     <h3 className="font-bold text-xl text-slate-900 text-left">{s.name}</h3>
                   </div>
-                  <div className={`transition-transform duration-300 ${isExpanded ? 'rotate-180 text-pink-500' : 'text-slate-300'}`}>
+                  <div className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6"/></svg>
                   </div>
                 </button>
                 
                 {isExpanded && (
-                  <div className="px-7 pb-7 space-y-6 animate-fade-in">
-                    <div className="flex justify-between items-center border-t border-slate-100 pt-4">
-                      <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em]">{s.brand}</p>
-                      <div className="bg-pink-50 px-3 py-1.5 rounded-2xl text-pink-600 font-black text-[10px] shadow-sm border border-pink-100">{s.thc} THC</div>
+                  <div className="px-7 pb-7 space-y-6 animate-in fade-in slide-in-from-top-2">
+                    <div className="flex justify-between items-center border-t border-slate-200 pt-4">
+                      <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">{s.brand}</p>
+                      <div className="bg-white px-3 py-1.5 rounded-2xl text-pink-600 font-black text-[10px] shadow-sm border border-pink-50">{s.thc} THC</div>
                     </div>
                     <p className="text-slate-500 text-sm leading-relaxed italic">"{s.description}"</p>
                     
                     <div className="space-y-2">
-                      <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Terpenes (Tap to learn)</p>
-                      <div className="flex flex-wrap gap-2">
+                       <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Terpenes (Tap for details)</p>
+                       <div className="flex flex-wrap gap-2">
                         {s.terpenes.map(t => {
-                          const terpInfo = TERPENE_DATA[t] || { icon: "✨", desc: "A key aromatic compound." };
                           const terpKey = `${i}-${t}`;
-                          const terpExpanded = expandedTerpenes.has(terpKey);
+                          const isTerpExpanded = expandedTerpenes.has(terpKey);
+                          const info = TERPENE_DATA[t] || { icon: "✨", desc: "A minor but aromatic compound." };
                           return (
                             <div key={t} className="w-full">
                               <button 
                                 onClick={() => toggleTerpene(t, i)}
-                                className={`w-full flex items-center justify-between p-3 rounded-2xl border transition-all ${terpExpanded ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-white text-slate-500 border-slate-100'}`}
+                                className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl border transition-all ${isTerpExpanded ? 'bg-slate-900 text-white border-slate-900 shadow-md' : 'bg-white text-slate-500 border-slate-100 shadow-sm'}`}
                               >
-                                <span className="text-[10px] font-bold uppercase tracking-widest">{t}</span>
-                                <span className="text-lg">{terpInfo.icon}</span>
+                                <span className="font-bold text-[10px] uppercase tracking-widest">{t}</span>
+                                <span className="text-lg">{info.icon}</span>
                               </button>
-                              {terpExpanded && (
-                                <div className="p-4 bg-slate-800 text-white/80 text-xs rounded-2xl mt-2 animate-fade-in leading-relaxed">
-                                  {terpInfo.desc}
+                              {isTerpExpanded && (
+                                <div className="p-4 bg-slate-800 text-white/80 text-[11px] rounded-2xl mt-2 animate-in fade-in zoom-in-95 leading-relaxed">
+                                  {info.desc}
                                 </div>
                               )}
                             </div>
@@ -390,7 +465,7 @@ const App: React.FC = () => {
                     </div>
 
                     <Button onClick={() => handleBuyStrain(s)} variant="secondary" className="py-3 text-xs">
-                      Locate Near You
+                      Find
                     </Button>
                   </div>
                 )}
@@ -401,13 +476,13 @@ const App: React.FC = () => {
         
         <div className="p-8 bg-white border-t border-slate-100">
           <div className="flex gap-3">
-            <Button onClick={() => setCurrentScreen(Screen.EFFECTS)} variant="outline" className="flex-1 py-3 text-xs">
+            <Button onClick={() => setCurrentScreen(Screen.HOME)} variant="outline" className="flex-1 py-3 px-0 text-xs">
               Again
             </Button>
             <Button onClick={() => {
               setProfileTab('history');
               setCurrentScreen(Screen.PROFILE);
-            }} variant="primary" className="flex-1 py-3 text-xs">
+            }} variant="primary" className="flex-1 py-3 px-0 text-xs">
               Journal
             </Button>
           </div>
@@ -419,11 +494,15 @@ const App: React.FC = () => {
   const ProfileScreen = () => {
     const [isEditing, setIsEditing] = useState(false);
     const [editData, setEditData] = useState(user);
-    const [showClearConfirm, setShowClearConfirm] = useState(false);
+    // showClearConfirm state has been lifted to App component scope
 
-    // Derived Statistics
+    // Filtered data for subtabs
     const triedStrains = useMemo(() => Object.values(user?.journal || {}).filter(j => j.acquired), [user?.journal]);
-    const recentStrains = useMemo(() => Object.values(user?.journal || {}).sort((a, b) => b.timestamp - a.timestamp).slice(0, 5), [user?.journal]);
+    const recentEntries = useMemo(() => 
+      Object.values(user?.journal || {})
+        .sort((a, b) => b.timestamp - a.timestamp)
+        .slice(0, 5)
+    , [user?.journal]);
     
     const averageRatings = useMemo(() => {
       if (!user) return {};
@@ -438,11 +517,10 @@ const App: React.FC = () => {
           }
         });
       });
-      const avgs: Record<string, number> = {};
-      Object.entries(totals).forEach(([effect, val]) => {
-        avgs[effect] = val.sum / val.count;
-      });
-      return avgs;
+      return Object.entries(totals).reduce((acc, [effect, data]) => {
+        acc[effect] = data.sum / data.count;
+        return acc;
+      }, {} as Record<string, number>);
     }, [user?.journal]);
 
     const handleSave = () => {
@@ -452,8 +530,8 @@ const App: React.FC = () => {
 
     return (
       <div className="h-full flex flex-col bg-white overflow-hidden relative">
-        <div className="p-8 bg-slate-900 text-white text-center relative">
-          <button onClick={() => setCurrentScreen(Screen.HOME)} className="absolute left-6 top-10 text-white/50 hover:text-white transition-colors">
+        <div className="p-8 bg-slate-900 text-white text-center relative overflow-hidden">
+          <button onClick={() => setCurrentScreen(Screen.HOME)} className="absolute left-8 top-10 text-white/50 hover:text-white transition-colors">
              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
           </button>
           <div className="w-20 h-20 rounded-[1.8rem] border-4 border-white/10 mx-auto mb-4 overflow-hidden shadow-2xl">
@@ -461,7 +539,7 @@ const App: React.FC = () => {
           </div>
           <h2 className="font-serif text-2xl mb-1">{user?.displayName}</h2>
           
-          <div className="mt-8 flex bg-white/5 rounded-2xl p-1">
+          <div className="mt-8 flex bg-white/5 rounded-2xl p-1 relative z-10">
             <button 
               onClick={() => setProfileTab('history')} 
               className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${profileTab === 'history' ? 'bg-white text-slate-900 shadow-lg' : 'text-white/40'}`}
@@ -477,13 +555,13 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto no-scrollbar pb-10">
+        <div className="flex-1 overflow-y-auto no-scrollbar">
           {profileTab === 'profile' ? (
-            <div className="p-8 space-y-8 animate-fade-in">
+            <div className="p-8 space-y-8 animate-in fade-in">
               {isEditing ? (
                 <div className="space-y-6">
                   <div className="space-y-3">
-                    <label className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">Display Name</label>
+                    <label className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">Name</label>
                     <input 
                       value={editData?.displayName} 
                       onChange={e => setEditData(d => d ? ({...d, displayName: e.target.value}) : null)} 
@@ -491,109 +569,111 @@ const App: React.FC = () => {
                     />
                   </div>
                   <div className="flex gap-4 pt-4">
-                    <Button onClick={handleSave}>Save Changes</Button>
+                    <Button onClick={handleSave}>Save</Button>
                     <Button variant="outline" onClick={() => setIsEditing(false)}>Cancel</Button>
                   </div>
                 </div>
               ) : (
-                <div className="space-y-6">
-                  <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-10">
+                   <div className="grid grid-cols-2 gap-4">
                     <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
-                      <span className="text-[10px] font-black text-slate-300 uppercase block mb-1 tracking-widest">Age</span>
-                      <span className="font-bold text-xl text-black">{user?.age || '—'}</span>
+                      <span className="text-[10px] font-black text-slate-300 uppercase block mb-2 tracking-widest">Age</span>
+                      <span className="font-bold text-2xl text-black">{user?.age || '—'}</span>
                     </div>
                     <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
-                      <span className="text-[10px] font-black text-slate-300 uppercase block mb-1 tracking-widest">Sex</span>
-                      <span className="font-bold text-xl text-black">{user?.sex || '—'}</span>
+                      <span className="text-[10px] font-black text-slate-300 uppercase block mb-2 tracking-widest">Sex</span>
+                      <span className="font-bold text-2xl text-black">{user?.sex || '—'}</span>
                     </div>
                   </div>
-                  <Button variant="outline" onClick={() => setIsEditing(true)}>Edit Details</Button>
-                  <Button variant="danger" onClick={() => setShowClearConfirm(true)}>Reset Journal</Button>
-                  <Button variant="ghost" onClick={() => { setUser(null); setCurrentScreen(Screen.AUTH); logout(); }}>Log Out</Button>
+                  <div className="space-y-3 pt-6">
+                    <Button variant="outline" onClick={() => setIsEditing(true)}>Edit Profile</Button>
+                    <Button variant="danger" onClick={() => setShowClearConfirm(true)}>Clear Journal</Button>
+                    <Button variant="ghost" onClick={() => { setUser(null); setCurrentScreen(Screen.AUTH); logout(); }}>Sign Out</Button>
+                  </div>
                 </div>
               )}
             </div>
           ) : (
-            <div className="flex flex-col h-full animate-fade-in">
-              <div className="flex border-b border-slate-100 sticky top-0 bg-white z-10 px-4">
+            <div className="flex flex-col h-full animate-in fade-in">
+              <div className="flex border-b border-slate-50 sticky top-0 bg-white z-10 px-4">
                 {(['recent', 'tried', 'flights', 'ratings'] as const).map(tab => (
                   <button 
                     key={tab}
-                    onClick={() => setHistoryTab(tab)}
-                    className={`flex-1 py-4 text-[9px] font-black uppercase tracking-tighter transition-all border-b-2 ${historyTab === tab ? 'border-pink-600 text-slate-900' : 'border-transparent text-slate-300'}`}
+                    onClick={() => setHistorySubTab(tab)}
+                    className={`flex-1 py-4 text-[9px] font-black uppercase tracking-tighter transition-all border-b-2 ${historySubTab === tab ? 'border-pink-600 text-slate-900' : 'border-transparent text-slate-300'}`}
                   >
                     {tab}
                   </button>
                 ))}
               </div>
 
-              <div className="p-6">
-                {historyTab === 'recent' && (
-                  <div className="space-y-4">
-                    {recentStrains.length === 0 ? <p className="text-center text-slate-300 italic text-xs py-10">No recent history.</p> : 
-                      recentStrains.map(entry => (
-                        <div key={entry.strainName} className="p-5 rounded-3xl border border-slate-100 bg-slate-50 flex items-center justify-between">
-                          <div>
-                            <h4 className="font-bold text-slate-900">{entry.strainName}</h4>
-                            <p className="text-[9px] text-slate-400">{new Date(entry.timestamp).toLocaleDateString()}</p>
+              <div className="p-6 space-y-4">
+                {historySubTab === 'recent' && (
+                  <>
+                    {recentEntries.length === 0 ? <p className="text-center text-slate-300 italic text-xs py-10">No entries yet.</p> : 
+                      recentEntries.map(entry => {
+                        const ratedValues = Object.values(entry.ratings).filter(r => r.score > 0);
+                        const avg = ratedValues.length > 0 ? (ratedValues.reduce((a, b) => a + b.score, 0) / ratedValues.length).toFixed(1) : '—';
+                        return (
+                          <div key={entry.strainName} className="p-5 rounded-3xl border border-slate-100 bg-slate-50 flex items-center justify-between">
+                            <div>
+                              <h4 className="font-bold text-slate-900">{entry.strainName}</h4>
+                              <p className="text-[9px] text-slate-400">{new Date(entry.timestamp).toLocaleDateString()}</p>
+                            </div>
+                            <div className="text-pink-600 font-bold text-sm">★ {avg}</div>
                           </div>
-                          <div className="text-pink-600 font-bold text-lg">
-                            ★ {Object.values(entry.ratings).some(r => r.score > 0) 
-                                ? (Object.values(entry.ratings).filter(r => r.score > 0).reduce((a, b) => a + b.score, 0) / Object.values(entry.ratings).filter(r => r.score > 0).length).toFixed(1)
-                                : '—'}
-                          </div>
-                        </div>
-                      ))
+                        );
+                      })
                     }
-                  </div>
+                  </>
                 )}
 
-                {historyTab === 'tried' && (
-                  <div className="space-y-4">
-                    {triedStrains.length === 0 ? <p className="text-center text-slate-300 italic text-xs py-10">No strains tried yet.</p> : 
+                {historySubTab === 'tried' && (
+                  <>
+                    {triedStrains.length === 0 ? <p className="text-center text-slate-300 italic text-xs py-10">Nothing in your bag yet.</p> : 
                       triedStrains.map(entry => (
                         <div key={entry.strainName} className="p-5 rounded-3xl border border-pink-100 bg-white shadow-sm flex items-center justify-between">
                           <h4 className="font-bold text-slate-900">{entry.strainName}</h4>
-                          <span className="text-[9px] font-black uppercase text-emerald-500 bg-emerald-50 px-2 py-1 rounded-lg">Verified</span>
+                          <span className="text-[9px] font-black uppercase text-emerald-500 bg-emerald-50 px-2 py-1 rounded-lg">Acquired</span>
                         </div>
                       ))
                     }
-                  </div>
+                  </>
                 )}
 
-                {historyTab === 'flights' && (
-                  <div className="space-y-4">
-                    {user?.flightsHistory.length === 0 ? <p className="text-center text-slate-300 italic text-xs py-10">No flights generated.</p> : 
-                      user?.flightsHistory.map(flight => (
-                        <div key={flight.id} className="p-5 rounded-3xl border border-slate-100 bg-slate-50 space-y-3">
+                {historySubTab === 'flights' && (
+                  <>
+                    {(!user?.flightsHistory || user.flightsHistory.length === 0) ? <p className="text-center text-slate-300 italic text-xs py-10">No flight history found.</p> : 
+                      user.flightsHistory.map(record => (
+                        <div key={record.id} className="p-5 rounded-3xl border border-slate-100 bg-slate-50 space-y-3">
                           <div className="flex justify-between items-center">
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{new Date(flight.timestamp).toLocaleDateString()}</span>
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{new Date(record.timestamp).toLocaleDateString()}</span>
                             <div className="flex gap-1">
-                              {flight.effects.map(e => <span key={e} className="w-2 h-2 rounded-full bg-pink-400"></span>)}
+                              {record.effects.map(e => <span key={e} className="w-1.5 h-1.5 rounded-full bg-pink-400"></span>)}
                             </div>
                           </div>
                           <div className="flex flex-wrap gap-2">
-                            {flight.strains.map(s => (
-                              <span key={s.name} className="text-[10px] font-bold text-slate-900 bg-white px-2 py-1 rounded-lg border border-slate-100 shadow-sm">{s.name}</span>
+                            {record.strains.map(s => (
+                              <span key={s.name} className="text-[10px] font-bold text-slate-900 bg-white px-2 py-1 rounded-lg border border-slate-100">{s.name}</span>
                             ))}
                           </div>
                         </div>
                       ))
                     }
-                  </div>
+                  </>
                 )}
 
-                {historyTab === 'ratings' && (
-                  <div className="space-y-6">
-                    {Object.keys(averageRatings).length === 0 ? <p className="text-center text-slate-300 italic text-xs py-10">Rate strains in your journal to see data.</p> : 
+                {historySubTab === 'ratings' && (
+                  <div className="space-y-6 pt-4">
+                    {Object.keys(averageRatings).length === 0 ? <p className="text-center text-slate-300 italic text-xs py-10">Add ratings to see averages.</p> : 
                       Object.entries(averageRatings).map(([effect, avg]) => (
                         <div key={effect} className="space-y-2">
                           <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-slate-500">
                             <span>{effect}</span>
-                            <span className="text-pink-600">{avg.toFixed(1)} / 5.0</span>
+                            <span className="text-pink-600">{avg.toFixed(1)} / 5</span>
                           </div>
-                          <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                            <div className="h-full bg-gradient-to-r from-pink-500 to-rose-400 rounded-full transition-all duration-1000" style={{ width: `${(avg/5)*100}%` }}></div>
+                          <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-pink-600 rounded-full" style={{ width: `${(avg/5)*100}%` }}></div>
                           </div>
                         </div>
                       ))
@@ -604,58 +684,93 @@ const App: React.FC = () => {
             </div>
           )}
         </div>
-
-        {showClearConfirm && (
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-8 animate-fade-in">
-            <div className="bg-white rounded-[2.5rem] p-8 w-full max-w-[300px] shadow-2xl space-y-6 text-center">
-              <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto text-3xl shadow-inner">🗑️</div>
-              <h3 className="font-serif text-2xl text-slate-900">Reset Data?</h3>
-              <p className="text-slate-400 text-sm">This will clear your journal and flight history forever.</p>
-              <div className="space-y-3">
-                <Button variant="danger" onClick={() => { setUser(u => u ? ({...u, journal: {}, flightsHistory: []}) : null); setShowClearConfirm(false); }}>Reset All</Button>
-                <Button variant="outline" onClick={() => setShowClearConfirm(false)}>Cancel</Button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     );
   };
 
-  const OnboardingScreen = () => {
-    const isReady = user?.age && user?.sex;
+  const LoadingScreen = () => (
+    <div className="h-full flex flex-col justify-center items-center p-12 bg-white text-center">
+      <Logo size={90} />
+      <div className="mt-12"><LoadingIndicator message="Doing Some Magic..." /></div>
+    </div>
+  );
+
+  const EffectsScreen = () => {
+    const options = [
+      { id: 'relaxed', label: 'Relaxed', icon: '😌' },
+      { id: 'creative', label: 'Creative', icon: '🎨' },
+      { id: 'happy', label: 'Happy', icon: '😊' },
+      { id: 'focused', label: 'Focused', icon: '🎯' },
+      { id: 'sleepy', label: 'Sleepy', icon: '😴' },
+      { id: 'energetic', label: 'Energetic', icon: '⚡' },
+      { id: 'social', label: 'Social', icon: '🗣️' },
+      { id: 'pain-relief', label: 'Comfort', icon: '🩹' },
+    ];
+    const toggleEffect = (id: string) => {
+      if (!user) return;
+      const effects = user.effects.includes(id) 
+        ? user.effects.filter(e => e !== id) 
+        : [...user.effects, id].slice(0, 4);
+      setUser({...user, effects});
+    };
     return (
-      <div className="h-full flex flex-col p-8 bg-white animate-fade-in">
-        <h2 className="font-serif text-3xl mb-12 text-slate-900">Tell us about you.</h2>
-        <div className="flex-1 space-y-10">
-          <div className="space-y-4">
-            <label className="text-[10px] uppercase font-black text-slate-300 tracking-[0.2em]">Age</label>
-            <input 
-              type="number" 
-              className="w-full p-5 bg-slate-50 border border-slate-100 rounded-3xl outline-none focus:border-pink-500 text-xl font-medium"
-              value={user?.age || ''}
-              onChange={(e) => setUser(u => u ? ({...u, age: parseInt(e.target.value)}) : null)}
-            />
-          </div>
-          <div className="space-y-4">
-            <label className="text-[10px] uppercase font-black text-slate-300 tracking-[0.2em]">Sex</label>
-            <div className="grid grid-cols-3 gap-4">
-              {['Female', 'Male', 'X'].map(s => (
-                <button 
-                  key={s}
-                  onClick={() => setUser(u => u ? ({...u, sex: s}) : null)}
-                  className={`py-5 rounded-3xl border-2 transition-all font-bold text-sm ${user?.sex === s ? 'border-pink-600 bg-pink-50 text-pink-600 shadow-md' : 'border-slate-50 bg-slate-50 text-slate-400'}`}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          </div>
+      <div className="h-full flex flex-col p-8 bg-white">
+        <h2 className="font-serif text-3xl mb-2 text-slate-900">How do you want to feel?</h2>
+        <div className="flex-1 grid grid-cols-2 gap-4 overflow-y-auto no-scrollbar pb-6">
+          {options.map(o => (
+            <button 
+              key={o.id} 
+              onClick={() => toggleEffect(o.id)} 
+              className={`p-6 rounded-[2.5rem] border-2 flex flex-col items-center gap-3 transition-all duration-300 ${user?.effects.includes(o.id) ? 'border-pink-600 bg-pink-50 shadow-lg scale-[1.02]' : 'border-slate-50 bg-slate-50 opacity-70'}`}
+            >
+              <span className="text-3xl">{o.icon}</span>
+              <span className="font-bold text-[10px] uppercase tracking-widest text-slate-600">{o.label}</span>
+            </button>
+          ))}
         </div>
-        <Button disabled={!isReady} onClick={handleAgeCheck}>Continue</Button>
+        <Button disabled={user?.effects.length === 0} onClick={handleFlightGeneration}>Explore</Button>
       </div>
     );
   };
+
+  const DispensaryListScreen = () => (
+    <div className="h-full flex flex-col bg-slate-50">
+      <div className="p-8 bg-white border-b border-slate-100 flex items-center gap-4">
+        <button onClick={() => setCurrentScreen(Screen.FLIGHT)} className="text-slate-400">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        </button>
+        <h2 className="font-serif text-xl">{searchingForStrain} Near You</h2>
+      </div>
+      <div className="flex-1 overflow-y-auto p-5 space-y-4 no-scrollbar">
+        {dispensaries.map(d => (
+          <div key={d.id} className="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm">
+            <div className="flex justify-between items-start mb-2">
+              <h3 className="font-bold">{d.name}</h3>
+              <p className="text-xs text-slate-400">{d.distance}</p>
+            </div>
+            {d.uri && (
+              <a href={d.uri} target="_blank" rel="noopener noreferrer" className="inline-block mt-3 text-pink-600 text-xs font-bold">Show on Map →</a>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  const BlockedScreen = () => (
+    <div className="p-20 text-center h-full flex flex-col items-center justify-center">
+      <Logo color="#ef4444" />
+      <h2 className="font-serif text-3xl mt-10">21+ Only</h2>
+      <Button variant="danger" className="mt-8" onClick={() => { logout(); setCurrentScreen(Screen.AUTH); }}>Exit</Button>
+    </div>
+  );
+
+  const FeedbackScreen = () => (
+    <div className="p-10 h-full flex flex-col items-center justify-center">
+       <h2 className="font-serif text-2xl mb-8">Got Feedback?</h2>
+       <Button onClick={() => setCurrentScreen(Screen.HOME)}>Back to Home</Button>
+    </div>
+  );
 
   const renderScreen = () => {
     switch (currentScreen) {
@@ -675,123 +790,23 @@ const App: React.FC = () => {
     }
   };
 
-  const LocationScreen = () => (
-    <div className="h-full flex flex-col p-10 bg-white text-center justify-center items-center animate-fade-in">
-      <div className="w-28 h-28 bg-rose-50 rounded-full flex items-center justify-center mb-10 shadow-inner"><span className="text-5xl">📍</span></div>
-      <h2 className="font-serif text-3xl mb-4 text-slate-900">Local Curation</h2>
-      <Button onClick={handleLocationFetch} disabled={loading}>{loading ? 'Locating...' : 'Enable Location'}</Button>
-    </div>
-  );
-
-  const EffectsScreen = () => {
-    const options = [
-      { id: 'relaxed', label: 'Relaxed', icon: '😌' },
-      { id: 'creative', label: 'Creative', icon: '🎨' },
-      { id: 'happy', label: 'Happy', icon: '😊' },
-      { id: 'focused', label: 'Focused', icon: '🎯' },
-      { id: 'sleepy', label: 'Sleepy', icon: '😴' },
-      { id: 'energetic', label: 'Energetic', icon: '⚡' },
-      { id: 'social', label: 'Social', icon: '🗣️' },
-      { id: 'pain-relief', label: 'Comfort', icon: '🩹' },
-    ];
-    const toggleEffect = (id: string) => {
-      if (!user) return;
-      const effects = user.effects.includes(id) ? user.effects.filter(e => e !== id) : [...user.effects, id].slice(0, 4);
-      setUser({...user, effects});
-    };
-    return (
-      <div className="h-full flex flex-col p-8 bg-white animate-fade-in">
-        <h2 className="font-serif text-3xl mb-6 text-slate-900">How do you want to feel?</h2>
-        <div className="flex-1 grid grid-cols-2 gap-4 overflow-y-auto no-scrollbar pb-6">
-          {options.map(o => (
-            <button 
-              key={o.id} 
-              onClick={() => toggleEffect(o.id)} 
-              className={`p-6 rounded-[2.5rem] border-2 flex flex-col items-center gap-3 transition-all duration-300 ${user?.effects.includes(o.id) ? 'border-pink-600 bg-pink-50 shadow-lg scale-[1.02]' : 'border-slate-50 bg-slate-50 opacity-70'}`}
-            >
-              <span className="text-3xl">{o.icon}</span>
-              <span className="font-bold text-[10px] uppercase tracking-widest text-slate-600">{o.label}</span>
-            </button>
-          ))}
-        </div>
-        <Button disabled={user?.effects.length === 0} onClick={handleFlightGeneration}>Curate My Flight</Button>
-      </div>
-    );
-  };
-
-  const DispensaryListScreen = () => (
-    <div className="h-full flex flex-col bg-slate-50 animate-fade-in">
-      <div className="p-8 bg-white border-b border-slate-100 flex items-center gap-4 sticky top-0 z-10">
-        <button onClick={() => setCurrentScreen(Screen.FLIGHT)} className="text-slate-400 p-2">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-        </button>
-        <h2 className="font-serif text-xl text-slate-900 truncate">Near You: {searchingForStrain}</h2>
-      </div>
-      <div className="flex-1 overflow-y-auto p-5 space-y-4 no-scrollbar">
-        {dispensaries.map(d => (
-          <div key={d.id} className="p-6 rounded-[2rem] bg-white shadow-sm border border-slate-100">
-            <div className="flex justify-between items-start mb-2">
-              <h3 className="font-bold text-slate-800">{d.name}</h3>
-              <span className="text-pink-500 font-bold text-[10px]">{d.distance}</span>
-            </div>
-            <div className="flex items-center gap-2 text-slate-400 text-xs mb-4">
-              <span className="text-yellow-400">★</span>
-              <span className="font-bold text-slate-600">{d.rating}</span>
-              <span>({d.reviewsCount})</span>
-            </div>
-            {d.uri && (
-              <a href={d.uri} target="_blank" rel="noopener noreferrer" className="inline-block bg-pink-50 text-pink-600 px-4 py-2 rounded-xl text-[10px] font-bold mt-2">
-                Open Maps
-              </a>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-
-  const LoadingScreen = () => (
-    <div className="h-full flex flex-col justify-center items-center p-12 bg-white text-center">
-      <Logo size={90} />
-      <div className="mt-12"><LoadingIndicator message="Curating for you..." /></div>
-    </div>
-  );
-
-  const FeedbackScreen = () => <div className="h-full flex items-center justify-center p-10 text-center animate-fade-in"><h2 className="font-serif text-2xl">Help Desk Coming Soon</h2><Button onClick={() => setCurrentScreen(Screen.HOME)} variant="outline">Back</Button></div>;
-  const TerpenesLibraryScreen = () => (
-    <div className="h-full flex flex-col bg-white overflow-hidden animate-fade-in">
-      <div className="p-8 border-b border-slate-100 flex items-center justify-between sticky top-0 z-10 bg-white">
-        <h2 className="font-serif text-3xl text-slate-900">Terpene Guide</h2>
-        <button onClick={() => setCurrentScreen(user ? Screen.HOME : Screen.AUTH)} className="w-10 h-10 flex items-center justify-center rounded-full bg-slate-50 text-slate-400">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
-        </button>
-      </div>
-      <div className="flex-1 overflow-y-auto p-6 space-y-4 no-scrollbar pb-10">
-        {Object.entries(TERPENE_DATA).map(([name, data]) => (
-          <div key={name} className="p-6 rounded-[2.5rem] bg-slate-50 border border-slate-100">
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-3xl">{data.icon}</span>
-              <h3 className="text-xl font-bold text-slate-800">{name}</h3>
-            </div>
-            <p className="text-slate-500 text-sm leading-relaxed">{data.desc}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-
-  const BlockedScreen = () => (
-    <div className="h-full flex flex-col justify-center items-center px-10 text-center bg-white">
-      <div className="w-24 h-24 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mb-8 text-4xl shadow-inner">🚫</div>
-      <h2 className="font-serif text-3xl mb-4 text-slate-900">21+ Only</h2>
-      <Button onClick={() => { setUser(null); setCurrentScreen(Screen.AUTH); logout(); }} variant="secondary">Exit</Button>
-    </div>
-  );
-
   return (
     <div className="fixed inset-0 bg-slate-100 flex items-center justify-center p-0 md:p-10">
       <div className="w-full h-full md:w-[375px] md:h-[667px] bg-white md:rounded-[3.5rem] shadow-2xl overflow-hidden relative flex flex-col border border-slate-200/50">
         {renderScreen()}
+        {showClearConfirm && (
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-8 animate-in fade-in">
+            <div className="bg-white rounded-[2.5rem] p-8 w-full max-w-[300px] shadow-2xl space-y-6 text-center">
+              <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto text-3xl shadow-inner">🗑️</div>
+              <h3 className="font-serif text-2xl text-slate-900">Reset Data?</h3>
+              <p className="text-slate-400 text-sm">This will clear your journal and flight history forever.</p>
+              <div className="space-y-3">
+                <Button variant="danger" onClick={() => { setUser(u => u ? ({...u, journal: {}, flightsHistory: []}) : null); setShowClearConfirm(false); }}>Reset All</Button>
+                <Button variant="outline" onClick={() => setShowClearConfirm(false)}>Cancel</Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
