@@ -4,6 +4,19 @@ import { Screen, UserData, Dispensary, Strain, JournalEntry } from './types';
 import { subscribeToAuthChanges, signInWithGoogle, logout } from './firebase';
 import { findDispensaries, generateFlight } from './geminiService';
 
+// --- Static Data ---
+
+const TERPENE_DATA: Record<string, { desc: string, icon: string }> = {
+  "Myrcene": { desc: "Herbal & earthy. Promotes relaxation and 'couch-lock' effects.", icon: "🌿" },
+  "Limonene": { desc: "Citrusy. Uplifting, mood-enhancing, and stress-relieving.", icon: "🍋" },
+  "Caryophyllene": { desc: "Peppery & spicy. Known for anti-inflammatory and pain-relieving properties.", icon: "🌶️" },
+  "Pinene": { desc: "Pine aroma. May boost alertness and counteract short-term memory loss.", icon: "🌲" },
+  "Linalool": { desc: "Floral & lavender. Deeply calming and helpful for sleep/anxiety.", icon: "🪻" },
+  "Humulene": { desc: "Woody & earthy. Found in hops, may suppress appetite.", icon: "🪵" },
+  "Terpinolene": { desc: "Floral, herbal, & citrus. Often found in Sativas; uplifting yet sedative.", icon: "🌸" },
+  "Ocimene": { desc: "Sweet, woody, & herbal. Associated with antiviral and decongestant effects.", icon: "🍃" }
+};
+
 // --- Components ---
 
 const LoadingIndicator: React.FC<{ message?: string; dark?: boolean }> = ({ message = "Loading...", dark = false }) => (
@@ -27,7 +40,7 @@ const Button: React.FC<{
     outline: "border-2 border-slate-100 text-slate-700 hover:border-pink-200 hover:bg-pink-50/30",
     ghost: "text-slate-400 hover:text-slate-600 hover:bg-slate-50",
     demo: "bg-indigo-50 text-indigo-600 border border-indigo-100",
-    danger: "bg-rose-50 text-rose-600 border border-rose-100"
+    danger: "bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-100"
   };
   
   return (
@@ -130,7 +143,6 @@ const App: React.FC = () => {
     try {
       const results = await generateFlight(user.effects);
       setFlight(results);
-      // pre-populate journal
       const newJournal: Record<string, JournalEntry> = { ...user.journal };
       results.forEach(s => {
         if (!newJournal[s.name]) {
@@ -166,6 +178,31 @@ const App: React.FC = () => {
         <Button onClick={handleDemoMode} variant="demo">
           Try as Guest (Demo Mode)
         </Button>
+        <Button onClick={() => setCurrentScreen(Screen.TERPENES_LIBRARY)} variant="ghost">
+          Learn About Terpenes
+        </Button>
+      </div>
+    </div>
+  );
+
+  const TerpenesLibraryScreen = () => (
+    <div className="h-full flex flex-col bg-white overflow-hidden">
+      <div className="p-8 border-b border-slate-100 flex items-center justify-between sticky top-0 z-10 bg-white">
+        <h2 className="font-serif text-3xl text-slate-900">Terpene Guide</h2>
+        <button onClick={() => setCurrentScreen(user ? Screen.FLIGHT : Screen.AUTH)} className="w-10 h-10 flex items-center justify-center rounded-full bg-slate-50 text-slate-400">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto p-6 space-y-4 no-scrollbar">
+        {Object.entries(TERPENE_DATA).map(([name, data]) => (
+          <div key={name} className="p-6 rounded-[2.5rem] bg-slate-50 border border-slate-100">
+            <div className="flex items-center gap-4 mb-3">
+              <span className="text-3xl">{data.icon}</span>
+              <h3 className="text-xl font-bold text-slate-800">{name}</h3>
+            </div>
+            <p className="text-slate-500 text-sm leading-relaxed">{data.desc}</p>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -289,7 +326,19 @@ const App: React.FC = () => {
               <span className="font-bold text-slate-600">{d.rating}</span>
               <span>({d.reviewsCount})</span>
             </div>
-            <div className="text-[10px] text-slate-300">{d.address}</div>
+            <div className="text-[10px] text-slate-300 mb-2">{d.address}</div>
+            {/* Displaying grounding link as required by Gemini grounding guidelines */}
+            {d.uri && (
+              <a 
+                href={d.uri} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="text-pink-600 underline text-[10px] font-bold block transition-opacity hover:opacity-70"
+                onClick={(e) => e.stopPropagation()}
+              >
+                View on Google Maps
+              </a>
+            )}
           </div>
         ))}
       </div>
@@ -306,48 +355,101 @@ const App: React.FC = () => {
     </div>
   );
 
-  const FlightScreen = () => (
-    <div className="h-full flex flex-col bg-white">
-      <div className="p-8 border-b border-slate-100 flex justify-between items-end bg-white sticky top-0 z-10">
-        <div>
-          <h2 className="font-serif text-3xl text-slate-900">Your Flight</h2>
-        </div>
-        <button onClick={() => setCurrentScreen(Screen.PROFILE)} className="w-12 h-12 rounded-2xl overflow-hidden border-2 border-pink-50 transition-transform active:scale-90">
-          <img src={user?.photoURL} alt="" className="w-full h-full object-cover" />
-        </button>
-      </div>
-      <div className="flex-1 overflow-y-auto p-6 space-y-6 no-scrollbar">
-        {flight.map((s, i) => (
-          <div key={i} className="bg-slate-50 rounded-[2.5rem] border border-slate-100 p-7 shadow-sm">
-            <div className="flex justify-between items-start mb-5">
-              <div className="flex gap-4 items-center">
-                <div className="w-9 h-9 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs shadow-lg">{i+1}</div>
-                <div>
-                  <h3 className="font-bold text-xl text-slate-900">{s.name}</h3>
-                  <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">{s.brand}</p>
-                </div>
-              </div>
-              <div className="bg-white px-3 py-1.5 rounded-2xl text-pink-600 font-black text-[10px] shadow-sm border border-pink-50">{s.thc} THC</div>
-            </div>
-            <p className="text-slate-500 text-sm leading-relaxed mb-6 italic">"{s.description}"</p>
-            <div className="flex flex-wrap gap-2">
-              {s.terpenes.map(t => (
-                <span key={t} className="bg-white px-3 py-2 rounded-xl text-slate-500 font-bold text-[9px] uppercase tracking-widest border border-slate-100 shadow-sm">{t}</span>
-              ))}
-            </div>
+  const FlightScreen = () => {
+    const [expandedStrains, setExpandedStrains] = useState<Set<number>>(new Set());
+    const [expandedTerpene, setExpandedTerpene] = useState<string | null>(null);
+
+    const toggleStrain = (index: number) => {
+      const next = new Set(expandedStrains);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      setExpandedStrains(next);
+    };
+
+    return (
+      <div className="h-full flex flex-col bg-white">
+        <div className="p-8 border-b border-slate-100 flex justify-between items-end bg-white sticky top-0 z-10">
+          <div>
+            <h2 className="font-serif text-3xl text-slate-900">Your Flight</h2>
           </div>
-        ))}
+          <div className="flex gap-2">
+            <button onClick={() => setCurrentScreen(Screen.TERPENES_LIBRARY)} className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-xl shadow-sm border border-slate-100">
+              📚
+            </button>
+            <button onClick={() => setCurrentScreen(Screen.PROFILE)} className="w-12 h-12 rounded-2xl overflow-hidden border-2 border-pink-50 transition-transform active:scale-90">
+              <img src={user?.photoURL} alt="" className="w-full h-full object-cover" />
+            </button>
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto p-6 space-y-4 no-scrollbar">
+          {flight.map((s, i) => {
+            const isExpanded = expandedStrains.has(i);
+            return (
+              <div key={i} className="bg-slate-50 rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden transition-all duration-300">
+                <button 
+                  onClick={() => toggleStrain(i)}
+                  className="w-full p-7 flex items-center justify-between"
+                >
+                  <div className="flex gap-4 items-center">
+                    <div className="w-9 h-9 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs shadow-lg">{i+1}</div>
+                    <h3 className="font-bold text-xl text-slate-900 text-left">{s.name}</h3>
+                  </div>
+                  <div className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+                  </div>
+                </button>
+                
+                {isExpanded && (
+                  <div className="px-7 pb-7 space-y-6 animate-in fade-in slide-in-from-top-2">
+                    <div className="flex justify-between items-center border-t border-slate-200 pt-4">
+                      <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">{s.brand}</p>
+                      <div className="bg-white px-3 py-1.5 rounded-2xl text-pink-600 font-black text-[10px] shadow-sm border border-pink-50">{s.thc} THC</div>
+                    </div>
+                    <p className="text-slate-500 text-sm leading-relaxed italic">"{s.description}"</p>
+                    <div className="flex flex-wrap gap-2">
+                      {s.terpenes.map(t => {
+                        const info = TERPENE_DATA[t] || { icon: "✨", desc: "A minor terpene adding to the entourage effect." };
+                        const isTerpExp = expandedTerpene === `${i}-${t}`;
+                        return (
+                          <div key={t} className="flex flex-col">
+                            <button 
+                              onClick={() => setExpandedTerpene(isTerpExp ? null : `${i}-${t}`)}
+                              className={`px-3 py-2 rounded-xl font-bold text-[9px] uppercase tracking-widest border transition-all ${isTerpExp ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-500 border-slate-100 shadow-sm'}`}
+                            >
+                              {t}
+                            </button>
+                            {isTerpExp && (
+                              <div className="mt-2 p-3 bg-white border border-slate-100 rounded-xl shadow-lg z-20 max-w-[200px] animate-in zoom-in-95">
+                                <p className="text-[10px] text-slate-600 leading-normal">
+                                  <span className="mr-1">{info.icon}</span>
+                                  {info.desc}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <div className="p-8 bg-white border-t border-slate-100">
+          <Button onClick={() => setCurrentScreen(Screen.PROFILE)}>View Journal & Rates</Button>
+        </div>
       </div>
-      <div className="p-8 bg-white border-t border-slate-100">
-        <Button onClick={() => setCurrentScreen(Screen.PROFILE)}>View Journal & Rates</Button>
-      </div>
-    </div>
-  );
+    );
+  };
 
   const ProfileScreen = () => {
     const [tab, setTab] = useState<'settings' | 'journal'>('journal');
     const [isEditing, setIsEditing] = useState(false);
     const [editData, setEditData] = useState(user);
+    const [showClearConfirm, setShowClearConfirm] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [expandedDetails, setExpandedDetails] = useState<string | null>(null);
 
     const updateJournal = (strainName: string, updates: Partial<JournalEntry>) => {
       if (!user) return;
@@ -372,13 +474,24 @@ const App: React.FC = () => {
       updateJournal(strainName, { ratings: newRatings });
     };
 
+    const clearJournal = () => {
+      if (user) {
+        setUser({ ...user, journal: {} });
+      }
+      setShowClearConfirm(false);
+    };
+
     const handleSave = () => {
       if (editData) setUser(editData);
       setIsEditing(false);
     };
 
+    const filteredJournal = flight.filter(s => 
+      s.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
     return (
-      <div className="h-full flex flex-col bg-white overflow-hidden">
+      <div className="h-full flex flex-col bg-white overflow-hidden relative">
         {/* header */}
         <div className="p-8 bg-slate-900 text-white text-center relative overflow-hidden">
           <button onClick={() => setCurrentScreen(Screen.FLIGHT)} className="absolute left-8 top-10 text-white/50 hover:text-white transition-colors">
@@ -420,7 +533,7 @@ const App: React.FC = () => {
                     />
                   </div>
                   <div className="flex gap-4 pt-4">
-                    <Button onClick={handleSave}>Save</Button>
+                    <Button onClick={handleSave}>Save Changes</Button>
                     <Button variant="outline" onClick={() => setIsEditing(false)}>Cancel</Button>
                   </div>
                 </div>
@@ -437,7 +550,8 @@ const App: React.FC = () => {
                     </div>
                   </div>
                   <div className="space-y-3 pt-6">
-                    <Button variant="outline" onClick={() => setIsEditing(true)}>Edit</Button>
+                    <Button variant="outline" onClick={() => setIsEditing(true)}>Edit Profile</Button>
+                    <Button variant="danger" onClick={() => setShowClearConfirm(true)}>Clear Journal</Button>
                     <Button variant="ghost" onClick={() => { setUser(null); setCurrentScreen(Screen.AUTH); logout(); }}>Sign Out</Button>
                   </div>
                 </div>
@@ -445,10 +559,30 @@ const App: React.FC = () => {
             </div>
           ) : (
             <div className="p-6 space-y-6">
-              <h4 className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] px-2">Current Flight</h4>
-              {flight.map((s, i) => {
+              <div className="relative mb-4">
+                <input 
+                  type="text" 
+                  placeholder="Search strains..." 
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-3xl outline-none focus:border-pink-500 focus:bg-white transition-all text-sm"
+                />
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                </div>
+              </div>
+
+              <h4 className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] px-2">Your Entries</h4>
+              
+              {filteredJournal.length === 0 && (
+                <div className="py-20 text-center text-slate-300 italic text-sm">No matches found.</div>
+              )}
+
+              {filteredJournal.map((s, i) => {
                 const entry = user?.journal[s.name];
                 if (!entry) return null;
+                const isDetExpanded = expandedDetails === s.name;
+
                 return (
                   <div key={i} className={`p-6 rounded-[2.5rem] border-2 transition-all ${entry.acquired ? 'border-pink-100 bg-white shadow-md' : 'border-slate-50 bg-slate-50 opacity-60'}`}>
                     <div className="flex items-center justify-between mb-4">
@@ -466,6 +600,31 @@ const App: React.FC = () => {
 
                     {entry.acquired && (
                       <div className="space-y-6 mt-6 pt-6 border-t border-pink-50 animate-in fade-in">
+                        {/* Collapsible Details */}
+                        <div className="bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden">
+                          <button 
+                            onClick={() => setExpandedDetails(isDetExpanded ? null : s.name)}
+                            className="w-full p-4 flex justify-between items-center text-[10px] font-black text-slate-400 uppercase tracking-widest"
+                          >
+                            <span>Strain Info</span>
+                            <span className={`transition-transform ${isDetExpanded ? 'rotate-180' : ''}`}>▼</span>
+                          </button>
+                          {isDetExpanded && (
+                            <div className="p-4 pt-0 space-y-4 animate-in slide-in-from-top-2">
+                              <div className="flex justify-between text-[10px]">
+                                <span className="text-slate-400">THC: {s.thc}</span>
+                                <span className="text-slate-400">CBD: {s.cbd}</span>
+                              </div>
+                              <p className="text-[11px] text-slate-500 italic">"{s.description}"</p>
+                              <div className="flex flex-wrap gap-1">
+                                {s.terpenes.map(t => (
+                                  <span key={t} className="text-[9px] bg-white border border-slate-200 px-2 py-1 rounded-lg text-slate-500">{t}</span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
                         {user?.effects.map(effect => (
                           <div key={effect} className="space-y-3">
                             <div className="flex justify-between items-center">
@@ -498,6 +657,23 @@ const App: React.FC = () => {
             </div>
           )}
         </div>
+
+        {/* Clear Confirm Modal */}
+        {showClearConfirm && (
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-8 animate-in fade-in">
+            <div className="bg-white rounded-[2.5rem] p-8 w-full max-w-[300px] shadow-2xl space-y-6 text-center animate-in zoom-in-95">
+              <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto text-3xl">🗑️</div>
+              <div>
+                <h3 className="font-serif text-2xl text-slate-900 mb-2">Clear Journal?</h3>
+                <p className="text-slate-400 text-sm leading-relaxed">This will delete all your session notes forever. You can't undo this.</p>
+              </div>
+              <div className="space-y-3">
+                <Button variant="danger" onClick={clearJournal}>Yes, Clear Everything</Button>
+                <Button variant="outline" onClick={() => setShowClearConfirm(false)}>Keep It</Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -508,7 +684,7 @@ const App: React.FC = () => {
         {renderScreen(currentScreen, {
           AuthScreen, OnboardingScreen, LocationScreen, 
           EffectsScreen, DispensaryListScreen, LoadingScreen, FlightScreen, 
-          ProfileScreen, BlockedScreen
+          ProfileScreen, BlockedScreen, TerpenesLibraryScreen
         })}
       </div>
     </div>
@@ -526,6 +702,7 @@ function renderScreen(current: Screen, components: any) {
     case Screen.FLIGHT: return <components.FlightScreen />;
     case Screen.PROFILE: return <components.ProfileScreen />;
     case Screen.BLOCKED: return <components.BlockedScreen />;
+    case Screen.TERPENES_LIBRARY: return <components.TerpenesLibraryScreen />;
     default: return <components.AuthScreen />;
   }
 }

@@ -52,5 +52,6 @@ export enum Screen {
   LOADING = 'loading',
   FLIGHT = 'flight',
   PROFILE = 'profile',
-  BLOCKED = 'blocked'
+  BLOCKED = 'blocked',
+  TERPENES_LIBRARY = 'terpenes_library'
 }
