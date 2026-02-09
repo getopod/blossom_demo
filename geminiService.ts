@@ -2,14 +2,16 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Dispensary, Strain } from "./types";
 
-export const findDispensaries = async (lat: number, lng: number): Promise<Dispensary[]> => {
-  // Always create a new GoogleGenAI instance right before making an API call
+export const findDispensaries = async (lat: number, lng: number, strainName?: string): Promise<Dispensary[]> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
+    const query = strainName 
+      ? `Find the top 3 highly rated cannabis dispensaries near coordinates latitude ${lat}, longitude ${lng} that are likely to carry the strain "${strainName}". Provide their names and website links.`
+      : `Find the top 3 highly rated cannabis dispensaries near coordinates latitude ${lat}, longitude ${lng}. Provide their names and website links.`;
+
     const response = await ai.models.generateContent({
-      // Maps grounding is only supported in Gemini 2.5 series models.
       model: "gemini-2.5-flash",
-      contents: `Find the top 3 highly rated cannabis dispensaries near coordinates latitude ${lat}, longitude ${lng}. Provide their names and website links.`,
+      contents: query,
       config: {
         tools: [{ googleMaps: {} }],
         toolConfig: {
@@ -26,14 +28,12 @@ export const findDispensaries = async (lat: number, lng: number): Promise<Dispen
     const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
     
     if (chunks && chunks.length > 0) {
-      // Must extract URLs from groundingChunks and list them on the web app.
       return chunks
         .filter((chunk: any) => chunk.maps)
         .map((chunk: any, index: number) => ({
           id: `disp-${index}`,
           name: chunk.maps.title || "Local Dispensary",
           address: chunk.maps.address || "Nearby",
-          // Synthetic data combined with grounding result
           rating: 4.5 + Math.random() * 0.5,
           reviewsCount: Math.floor(Math.random() * 500) + 50,
           distance: `${(Math.random() * 3).toFixed(1)} mi`,
@@ -42,27 +42,25 @@ export const findDispensaries = async (lat: number, lng: number): Promise<Dispen
     }
     
     return [
-      { id: '1', name: 'Fake One', address: 'Nowhere St', rating: 4.8, reviewsCount: 124, distance: '? mi' },
-      { id: '2', name: 'Unreal Thing', address: 'Nowhere Rd', rating: 4.7, reviewsCount: 312, distance: '? mi' },
-      { id: '3', name: 'Imaginary Place', address: 'Nowhere Pl', rating: 4.9, reviewsCount: 89, distance: '? mi' },
+      { id: '1', name: 'Premium Greens', address: '123 Market St', rating: 4.8, reviewsCount: 124, distance: '0.8 mi' },
+      { id: '2', name: 'The Bloom Room', address: '456 Castro St', rating: 4.7, reviewsCount: 312, distance: '1.2 mi' },
+      { id: '3', name: 'Green Oasis', address: '789 Hayes St', rating: 4.9, reviewsCount: 89, distance: '2.1 mi' },
     ];
   } catch (error) {
     console.error("Error fetching dispensaries:", error);
     return [
-      { id: 'm1', name: 'Fake (Demo)', address: 'Not Real St', rating: 4.9, reviewsCount: 200, distance: '? mi' },
-      { id: 'm2', name: 'Unreal (Demo)', address: 'Made Up Rc', rating: 4.7, reviewsCount: 150, distance: '? mi' },
+      { id: 'm1', name: 'High Profile (Demo)', address: 'Main St', rating: 4.9, reviewsCount: 200, distance: '0.5 mi' },
+      { id: 'm2', name: 'Leafy Life (Demo)', address: 'High St', rating: 4.7, reviewsCount: 150, distance: '1.1 mi' },
     ];
   }
 };
 
 export const generateFlight = async (effects: string[]): Promise<Strain[]> => {
-  // Always create a new GoogleGenAI instance right before making an API call
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const prompt = `Curate a "cannabis flight" of 3 distinct strains that help achieve these effects: ${effects.join(', ')}. 
   For each strain, provide: name, brand, THC%, CBD%, list of primary terpenes, and a short 1-sentence description of the experience.`;
 
   const response = await ai.models.generateContent({
-    // Using gemini-3-pro-preview for complex reasoning and curation tasks.
     model: 'gemini-3-pro-preview',
     contents: prompt,
     config: {
@@ -79,12 +77,11 @@ export const generateFlight = async (effects: string[]): Promise<Strain[]> => {
             terpenes: { type: Type.ARRAY, items: { type: Type.STRING } },
             description: { type: Type.STRING },
           },
-          required: ["name", "brand", "thc", "cbd", "terpenes", "description"]
+          propertyOrdering: ["name", "brand", "thc", "cbd", "terpenes", "description"]
         }
       }
     }
   });
 
-  // Extract text property directly from GenerateContentResponse (not as a method).
   return JSON.parse(response.text || '[]');
 };

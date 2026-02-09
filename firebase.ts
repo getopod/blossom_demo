@@ -1,6 +1,5 @@
 
 import { initializeApp } from 'firebase/app';
-// Separate type and value imports from 'firebase/auth' to fix resolution errors in some environments
 import { 
   getAuth, 
   GoogleAuthProvider, 
@@ -8,9 +7,9 @@ import {
   OAuthProvider,
   signInWithPopup,
   signOut,
-  onAuthStateChanged
+  onAuthStateChanged,
+  type User
 } from 'firebase/auth';
-import type { User } from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: process.env.API_KEY,
@@ -24,8 +23,8 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 
-export const googleProvider = new GoogleAuthProvider();
-export const facebookProvider = new FacebookAuthProvider();
+export const googleProvider = new GoogleAuthProvider('google.com');
+export const facebookProvider = new FacebookAuthProvider('facebook.com');
 export const appleProvider = new OAuthProvider('apple.com');
 
 export const signInWithGoogle = () => signInWithPopup(auth, googleProvider);

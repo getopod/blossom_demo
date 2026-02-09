@@ -67,41 +67,62 @@ const App: React.FC = () => {
   const [user, setUser] = useState<UserData | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [dispensaries, setDispensaries] = useState<Dispensary[]>([]);
-  const [selectedDispensary, setSelectedDispensary] = useState<Dispensary | null>(null);
   const [flight, setFlight] = useState<Strain[]>([]);
   const [profileTab, setProfileTab] = useState<'settings' | 'journal'>('journal');
+  const [searchingForStrain, setSearchingForStrain] = useState<string | null>(null);
 
   useEffect(() => {
     const unsubscribe = subscribeToAuthChanges((firebaseUser) => {
       if (firebaseUser) {
-        setUser({
+        // Mocking persistent user data check
+        // In a real app, we'd fetch from Firestore here
+        const existingData: Partial<UserData> = JSON.parse(localStorage.getItem(`blossom_${firebaseUser.uid}`) || '{}');
+        
+        const userData: UserData = {
           uid: firebaseUser.uid,
           email: firebaseUser.email || '',
           displayName: firebaseUser.displayName || 'Traveler',
           photoURL: firebaseUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${firebaseUser.uid}`,
-          age: null,
-          sex: '',
+          age: existingData.age || null,
+          sex: existingData.sex || '',
+          location: existingData.location,
           effects: [],
-          journal: {}
-        });
-        setCurrentScreen(Screen.HOME);
+          journal: existingData.journal || {}
+        };
+        
+        setUser(userData);
+
+        // Flow Skipping Logic
+        if (!userData.age || !userData.sex) {
+          setCurrentScreen(Screen.ONBOARDING);
+        } else {
+          setCurrentScreen(Screen.HOME);
+        }
       }
     });
     return () => unsubscribe();
   }, []);
 
+  // Save user data to "persist" bio/settings for demo
+  useEffect(() => {
+    if (user && user.uid) {
+      localStorage.setItem(`blossom_${user.uid}`, JSON.stringify(user));
+    }
+  }, [user]);
+
   const handleDemoMode = () => {
-    setUser({
-      uid: 'demo-user-123',
-      email: 'demo@blossom.ai',
+    const userData: UserData = {
+      uid: 'demo-user',
+      email: 'demo@blossom.wack',
       displayName: 'Demo',
       photoURL: 'https://api.dicebear.com/7.x/avataaars/svg?seed=demo',
       age: null,
       sex: '',
       effects: [],
       journal: {}
-    });
-    setCurrentScreen(Screen.HOME);
+    };
+    setUser(userData);
+    setCurrentScreen(Screen.ONBOARDING);
   };
 
   const handleAgeCheck = () => {
@@ -109,7 +130,11 @@ const App: React.FC = () => {
       if (user.age < 21) {
         setCurrentScreen(Screen.BLOCKED);
       } else {
-        setCurrentScreen(Screen.LOCATION);
+        if (user.location) {
+          setCurrentScreen(Screen.HOME);
+        } else {
+          setCurrentScreen(Screen.LOCATION);
+        }
       }
     }
   };
@@ -122,17 +147,13 @@ const App: React.FC = () => {
         if (user) {
           setUser({ ...user, location: { lat: latitude, lng: longitude } });
         }
-        const nearby = await findDispensaries(latitude, longitude);
-        setDispensaries(nearby);
         setLoading(false);
-        setCurrentScreen(Screen.EFFECTS);
+        setCurrentScreen(Screen.HOME);
       },
       () => {
-        findDispensaries(37.7749, -122.4194).then(nearby => {
-          setDispensaries(nearby);
-          setLoading(false);
-          setCurrentScreen(Screen.EFFECTS);
-        });
+        setLoading(false);
+        if (user) setUser({ ...user, location: { lat: 37.7749, lng: -122.4194 } });
+        setCurrentScreen(Screen.HOME);
       }
     );
   }, [user]);
@@ -160,7 +181,27 @@ const App: React.FC = () => {
       setUser({ ...user, journal: newJournal });
       setCurrentScreen(Screen.FLIGHT);
     } catch (e) {
+      setCurrentScreen(Screen.EFFECTS);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBuyStrain = async (strain: Strain) => {
+    if (!user?.location) {
+      setCurrentScreen(Screen.LOCATION);
+      return;
+    }
+    setSearchingForStrain(strain.name);
+    setLoading(true);
+    setCurrentScreen(Screen.LOADING);
+    try {
+      const nearby = await findDispensaries(user.location.lat, user.location.lng, strain.name);
+      setDispensaries(nearby);
       setCurrentScreen(Screen.DISPENSARIES);
+    } catch (e) {
+      console.error(e);
+      setCurrentScreen(Screen.FLIGHT);
     } finally {
       setLoading(false);
     }
@@ -172,17 +213,25 @@ const App: React.FC = () => {
     <div className="h-full flex flex-col justify-center items-center px-10 bg-white text-center">
       <div className="mb-10"><Logo size={110} /></div>
       <h1 className="font-serif text-5xl mb-4 tracking-tight text-slate-900">Blossom</h1>
-      <p className="text-slate-400 mb-12 text-sm leading-relaxed max-w-[240px]">Personalized cannabis curation.</p>
+      <p className="text-slate-400 mb-12 text-sm leading-relaxed max-w-[240px]">Personalized Cannabis Curation.</p>
       <div className="w-full space-y-3">
         <Button onClick={() => signInWithGoogle().catch(handleDemoMode)} variant="outline">
           <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt=""/>
           Continue with Google
         </Button>
+        <Button onClick={() => signInWithGoogle().catch(handleDemoMode)} variant="outline">
+          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/facebook.svg" className="w-5 h-5" alt=""/>
+          Continue with Facebook
+        </Button>
+        <Button onClick={() => signInWithGoogle().catch(handleDemoMode)} variant="outline">
+          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/apple.svg" className="w-5 h-5" alt=""/>
+          Continue with Apple
+        </Button>                
         <Button onClick={handleDemoMode} variant="demo">
-          Try as Guest (Demo Mode)
+          Demo
         </Button>
         <Button onClick={() => setCurrentScreen(Screen.TERPENES_LIBRARY)} variant="ghost">
-          Learn About Terpenes
+          Terpenes?
         </Button>
       </div>
     </div>
@@ -191,19 +240,9 @@ const App: React.FC = () => {
   const HomeScreen = () => (
     <div className="h-full flex flex-col justify-center items-center px-10 bg-white text-center">
       <div className="mb-10"><Logo size={90} /></div>
-      <h1 className="font-serif text-4xl mb-2 tracking-tight text-slate-900">Welcome back</h1>
-      <p className="text-slate-400 mb-12 text-sm leading-relaxed">Ready for your next journey?</p>
-      
-      <div className="w-full space-y-4">
-        <Button onClick={() => {
-          if (!user?.age || !user?.sex) {
-            setCurrentScreen(Screen.ONBOARDING);
-          } else if (!user?.location) {
-            setCurrentScreen(Screen.LOCATION);
-          } else {
-            setCurrentScreen(Screen.EFFECTS);
-          }
-        }} variant="primary">
+      <h1 className="font-serif text-4xl mb-2 tracking-tight text-slate-900">Welcome Back!</h1>      
+      <div className="w-full space-y-4 grid grid-cols-3">
+        <Button onClick={() => setCurrentScreen(Screen.EFFECTS)} variant="primary">
           Explore
         </Button>
         <Button onClick={() => {
@@ -215,13 +254,6 @@ const App: React.FC = () => {
         <Button onClick={() => setCurrentScreen(Screen.TERPENES_LIBRARY)} variant="ghost">
           Terpenes
         </Button>
-      </div>
-
-      <div className="mt-12 flex items-center gap-3">
-        <div className="w-8 h-8 rounded-full overflow-hidden border border-slate-100">
-          <img src={user?.photoURL} alt="" className="w-full h-full object-cover" />
-        </div>
-        <span className="text-xs font-bold text-slate-400">{user?.displayName}</span>
       </div>
     </div>
   );
@@ -243,9 +275,8 @@ const App: React.FC = () => {
       return (
         <div className="h-full flex flex-col justify-center items-center px-10 text-center bg-white">
           <div className="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mb-8 text-3xl">✨</div>
-          <h2 className="font-serif text-3xl mb-4 text-slate-900">Thank you!</h2>
-          <p className="text-slate-400 mb-12 text-sm leading-relaxed">Your feedback helps blossom grow. We've received your {category.toLowerCase()} report.</p>
-          <Button onClick={() => setCurrentScreen(Screen.FLIGHT)} variant="secondary">Back to Flight</Button>
+          <h2 className="font-serif text-3xl mb-4 text-slate-900">Sent!</h2>
+          <Button onClick={() => setCurrentScreen(Screen.FLIGHT)} variant="secondary">Back</Button>
         </div>
       );
     }
@@ -253,40 +284,32 @@ const App: React.FC = () => {
     return (
       <div className="h-full flex flex-col bg-white overflow-hidden">
         <div className="p-8 border-b border-slate-100 flex items-center justify-between sticky top-0 z-10 bg-white">
-          <h2 className="font-serif text-3xl text-slate-900">Help & Feedback</h2>
+          <h2 className="font-serif text-3xl text-slate-900">Help</h2>
           <button onClick={() => setCurrentScreen(Screen.FLIGHT)} className="w-10 h-10 flex items-center justify-center rounded-full bg-slate-50 text-slate-400">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
           </button>
         </div>
         <div className="flex-1 overflow-y-auto p-8 space-y-8 no-scrollbar">
-          <div className="space-y-4">
-            <label className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">Category</label>
-            <div className="grid grid-cols-2 gap-3">
-              {['Bug', 'UI', 'Science', 'Request'].map(c => (
-                <button 
-                  key={c}
-                  onClick={() => setCategory(c)}
-                  className={`py-4 rounded-2xl border-2 font-bold text-xs transition-all ${category === c ? 'border-pink-600 bg-pink-50 text-pink-600' : 'border-slate-50 bg-slate-50 text-slate-400'}`}
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
+          <div className="grid grid-cols-2 gap-3">
+            {['Bug', 'UI', 'Science', 'Request'].map(c => (
+              <button 
+                key={c}
+                onClick={() => setCategory(c)}
+                className={`py-4 rounded-2xl border-2 font-bold text-xs transition-all ${category === c ? 'border-pink-600 bg-pink-50 text-pink-600' : 'border-slate-50 bg-slate-50 text-slate-400'}`}
+              >
+                {c}
+              </button>
+            ))}
           </div>
-          <div className="space-y-4">
-            <label className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">Details</label>
-            <textarea 
-              placeholder="Tell us what's on your mind..."
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              className="w-full p-6 bg-slate-50 border border-slate-100 rounded-[2rem] h-48 outline-none focus:border-pink-500 focus:bg-white transition-all text-sm resize-none"
-            />
-          </div>
+          <textarea 
+            placeholder="Tell us more..."
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            className="w-full p-6 bg-slate-50 border border-slate-100 rounded-[2rem] h-48 outline-none focus:bg-white text-sm resize-none"
+          />
         </div>
-        <div className="p-8 border-t border-slate-100 bg-white">
-          <Button disabled={!comment.trim() || loading} onClick={handleSend}>
-            {loading ? 'Sending...' : 'Submit Feedback'}
-          </Button>
+        <div className="p-8 bg-white">
+          <Button disabled={!comment.trim() || loading} onClick={handleSend}>Submit</Button>
         </div>
       </div>
     );
@@ -318,7 +341,6 @@ const App: React.FC = () => {
     <div className="h-full flex flex-col justify-center items-center px-10 text-center bg-white">
       <div className="w-24 h-24 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mb-8 text-4xl shadow-inner">🚫</div>
       <h2 className="font-serif text-3xl mb-4 text-slate-900">Adults Only</h2>
-      <p className="text-slate-400 mb-12 text-sm leading-relaxed">Blossom is for adults. Come back when you are older.</p>
       <Button onClick={() => { setUser(null); setCurrentScreen(Screen.AUTH); logout(); }} variant="secondary">Exit</Button>
     </div>
   );
@@ -328,23 +350,23 @@ const App: React.FC = () => {
     return (
       <div className="h-full flex flex-col p-8 bg-white">
         <div className="mb-12">
-          <h2 className="font-serif text-3xl mb-2 text-slate-900">Bio Profile</h2>
+          <h2 className="font-serif text-3xl mb-2 text-slate-900">Who are you?</h2>
         </div>
         <div className="flex-1 space-y-10">
           <div className="space-y-4">
             <label className="text-[10px] uppercase font-black text-slate-300 tracking-[0.2em]">Age</label>
             <input 
               type="number" 
-              placeholder="e.g. 28" 
+              placeholder="" 
               className="w-full p-5 bg-slate-50 border border-slate-100 rounded-3xl outline-none focus:border-pink-500 transition-all text-xl font-medium"
               value={user?.age || ''}
               onChange={(e) => setUser(u => u ? ({...u, age: parseInt(e.target.value)}) : null)}
             />
           </div>
           <div className="space-y-4">
-            <label className="text-[10px] uppercase font-black text-slate-300 tracking-[0.2em]">Sex assigned at birth</label>
-            <div className="grid grid-cols-2 gap-4">
-              {['Female', 'Male'].map(s => (
+            <label className="text-[10px] uppercase font-black text-slate-300 tracking-[0.2em]">Sex</label>
+            <div className="grid grid-cols-3 gap-4">
+              {['Female', 'Male', 'No'].map(s => (
                 <button 
                   key={s}
                   onClick={() => setUser(u => u ? ({...u, sex: s}) : null)}
@@ -366,8 +388,7 @@ const App: React.FC = () => {
       <div className="w-28 h-28 bg-rose-50 rounded-full flex items-center justify-center mb-10 shadow-inner">
         <span className="text-5xl animate-bounce">📍</span>
       </div>
-      <h2 className="font-serif text-3xl mb-4 text-slate-900">Location Access</h2>
-      <p className="text-slate-400 text-sm mb-12 leading-relaxed">We scan real-time inventory to curate your flight.</p>
+      <h2 className="font-serif text-3xl mb-4 text-slate-900">Where are you?</h2>
       <Button onClick={handleLocationFetch} disabled={loading}>
         {loading ? <LoadingIndicator message="" /> : 'Enable Location'}
       </Button>
@@ -395,7 +416,6 @@ const App: React.FC = () => {
     return (
       <div className="h-full flex flex-col p-8 bg-white">
         <h2 className="font-serif text-3xl mb-2 text-slate-900">How do you want to feel?</h2>
-        <p className="text-slate-400 text-sm mb-8">Choose up to 4 effects.</p>
         <div className="flex-1 grid grid-cols-2 gap-4 overflow-y-auto no-scrollbar pb-6">
           {options.map(o => (
             <button 
@@ -408,25 +428,30 @@ const App: React.FC = () => {
             </button>
           ))}
         </div>
-        <Button disabled={user?.effects.length === 0} onClick={() => setCurrentScreen(Screen.DISPENSARIES)}>Find Matches</Button>
+        <Button disabled={user?.effects.length === 0} onClick={handleFlightGeneration}>Help Me</Button>
       </div>
     );
   };
 
   const DispensaryListScreen = () => (
     <div className="h-full flex flex-col bg-slate-50">
-      <div className="p-8 bg-white border-b border-slate-100 flex justify-between items-center">
-        <h2 className="font-serif text-3xl text-slate-900">Nearby Shops</h2>
+      <div className="p-8 bg-white border-b border-slate-100 flex items-center gap-4">
+        <button onClick={() => setCurrentScreen(Screen.FLIGHT)} className="text-slate-400">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        </button>
+        <div>
+          <h2 className="font-serif text-xl text-slate-900">{searchingForStrain} Near You</h2>
+        </div>
       </div>
       <div className="flex-1 overflow-y-auto p-5 space-y-4 no-scrollbar">
+        {dispensaries.length === 0 && <p className="text-center py-10 text-slate-400 text-sm italic">Doing More Magic...</p>}
         {dispensaries.map(d => (
           <div 
             key={d.id} 
-            onClick={() => setSelectedDispensary(d)} 
-            className={`p-6 rounded-[2rem] bg-white border-2 cursor-pointer transition-all duration-300 ${selectedDispensary?.id === d.id ? 'border-pink-600 shadow-xl' : 'border-transparent shadow-sm'}`}
+            className="p-6 rounded-[2rem] bg-white border-2 border-transparent shadow-sm"
           >
             <div className="flex justify-between items-start mb-2">
-              <h3 className={`font-bold ${selectedDispensary?.id === d.id ? 'text-pink-600' : 'text-slate-800'}`}>{d.name}</h3>
+              <h3 className="font-bold text-slate-800">{d.name}</h3>
               <span className="text-pink-500 font-bold text-[10px]">{d.distance}</span>
             </div>
             <div className="flex items-center gap-2 text-slate-400 text-xs mb-4">
@@ -440,17 +465,13 @@ const App: React.FC = () => {
                 href={d.uri} 
                 target="_blank" 
                 rel="noopener noreferrer" 
-                className="text-pink-600 underline text-[10px] font-bold block"
-                onClick={(e) => e.stopPropagation()}
+                className="inline-block bg-pink-50 text-pink-600 px-4 py-2 rounded-xl text-[10px] font-bold mt-2"
               >
-                View on Google Maps
+                Show Me
               </a>
             )}
           </div>
         ))}
-      </div>
-      <div className="p-8 bg-white border-t border-slate-100">
-        <Button disabled={!selectedDispensary} onClick={handleFlightGeneration}>Curate My Flight</Button>
       </div>
     </div>
   );
@@ -458,7 +479,7 @@ const App: React.FC = () => {
   const LoadingScreen = () => (
     <div className="h-full flex flex-col justify-center items-center p-12 bg-white text-center">
       <Logo size={90} />
-      <div className="mt-12"><LoadingIndicator message="Finding your match..." /></div>
+      <div className="mt-12"><LoadingIndicator message="Doing Some Magic..." /></div>
     </div>
   );
 
@@ -508,7 +529,7 @@ const App: React.FC = () => {
                       <div className="bg-white px-3 py-1.5 rounded-2xl text-pink-600 font-black text-[10px] shadow-sm border border-pink-50">{s.thc} THC</div>
                     </div>
                     <p className="text-slate-500 text-sm leading-relaxed italic">"{s.description}"</p>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-2 mb-4">
                       {s.terpenes.map(t => {
                         const info = TERPENE_DATA[t] || { icon: "✨", desc: "Entourage effect terpene." };
                         const isTerpExp = expandedTerpene === `${i}-${t}`;
@@ -532,6 +553,9 @@ const App: React.FC = () => {
                         );
                       })}
                     </div>
+                    <Button onClick={() => handleBuyStrain(s)} variant="secondary" className="py-3 text-xs">
+                      Find
+                    </Button>
                   </div>
                 )}
               </div>
@@ -539,11 +563,10 @@ const App: React.FC = () => {
           })}
         </div>
         
-        {/* New 3-Button Navigation Row */}
         <div className="p-8 bg-white border-t border-slate-100">
           <div className="flex gap-3">
             <Button onClick={() => setCurrentScreen(Screen.HOME)} variant="outline" className="flex-1 py-3 px-0 text-xs">
-              Again
+              Home
             </Button>
             <Button onClick={() => {
               setProfileTab('journal');
@@ -602,7 +625,7 @@ const App: React.FC = () => {
       setIsEditing(false);
     };
 
-    const filteredJournal = flight.filter(s => 
+    const filteredJournal = (flight.length > 0 ? flight : Object.values(user?.journal || {}).map(e => ({ name: e.strainName, brand: 'Blossom Curated', thc: '', cbd: '', description: '', terpenes: [] }))).filter(s => 
       s.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
@@ -647,7 +670,7 @@ const App: React.FC = () => {
                     />
                   </div>
                   <div className="flex gap-4 pt-4">
-                    <Button onClick={handleSave}>Save Changes</Button>
+                    <Button onClick={handleSave}>Save</Button>
                     <Button variant="outline" onClick={() => setIsEditing(false)}>Cancel</Button>
                   </div>
                 </div>
@@ -656,11 +679,11 @@ const App: React.FC = () => {
                    <div className="grid grid-cols-2 gap-4">
                     <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
                       <span className="text-[10px] font-black text-slate-300 uppercase block mb-2 tracking-widest">Age</span>
-                      <span className="font-bold text-2xl text-slate-800">{user?.age || '—'}</span>
+                      <span className="font-bold text-2xl text-black">{user?.age || '—'}</span>
                     </div>
                     <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
                       <span className="text-[10px] font-black text-slate-300 uppercase block mb-2 tracking-widest">Sex</span>
-                      <span className="font-bold text-2xl text-slate-800">{user?.sex || '—'}</span>
+                      <span className="font-bold text-2xl text-black">{user?.sex || '—'}</span>
                     </div>
                   </div>
                   <div className="space-y-3 pt-6">
@@ -679,18 +702,12 @@ const App: React.FC = () => {
                   placeholder="Search strains..." 
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-3xl outline-none focus:border-pink-500 focus:bg-white transition-all text-sm"
+                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-3xl outline-none focus:border-pink-500 text-sm"
                 />
                 <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
                 </div>
               </div>
-
-              <h4 className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] px-2">Your Entries</h4>
-              
-              {filteredJournal.length === 0 && (
-                <div className="py-20 text-center text-slate-300 italic text-sm">No matches found.</div>
-              )}
 
               {filteredJournal.map((s, i) => {
                 const entry = user?.journal[s.name];
@@ -709,35 +726,10 @@ const App: React.FC = () => {
                         />
                         <h3 className="font-bold text-slate-900">{s.name}</h3>
                       </div>
-                      {entry.acquired && <span className="text-[8px] bg-pink-600 text-white px-2 py-1 rounded-full font-black uppercase">Tried</span>}
                     </div>
 
                     {entry.acquired && (
-                      <div className="space-y-6 mt-6 pt-6 border-t border-pink-50 animate-in fade-in">
-                        <div className="bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden">
-                          <button 
-                            onClick={() => setExpandedDetails(isDetExpanded ? null : s.name)}
-                            className="w-full p-4 flex justify-between items-center text-[10px] font-black text-slate-400 uppercase tracking-widest"
-                          >
-                            <span>Strain Info</span>
-                            <span className={`transition-transform ${isDetExpanded ? 'rotate-180' : ''}`}>▼</span>
-                          </button>
-                          {isDetExpanded && (
-                            <div className="p-4 pt-0 space-y-4 animate-in slide-in-from-top-2">
-                              <div className="flex justify-between text-[10px]">
-                                <span className="text-slate-400">THC: {s.thc}</span>
-                                <span className="text-slate-400">CBD: {s.cbd}</span>
-                              </div>
-                              <p className="text-[11px] text-slate-500 italic">"{s.description}"</p>
-                              <div className="flex flex-wrap gap-1">
-                                {s.terpenes.map(t => (
-                                  <span key={t} className="text-[9px] bg-white border border-slate-200 px-2 py-1 rounded-lg text-slate-500">{t}</span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
+                      <div className="space-y-6 mt-6 pt-6 border-t border-pink-50">
                         {user?.effects.map(effect => (
                           <div key={effect} className="space-y-3">
                             <div className="flex justify-between items-center">
@@ -747,7 +739,7 @@ const App: React.FC = () => {
                                   <button 
                                     key={star} 
                                     onClick={() => updateRating(s.name, effect, star)}
-                                    className={`text-lg transition-transform active:scale-125 ${star <= entry.ratings[effect].score ? 'text-pink-600' : 'text-slate-200'}`}
+                                    className={`text-lg ${star <= entry.ratings[effect].score ? 'text-pink-600' : 'text-slate-200'}`}
                                   >
                                     ★
                                   </button>
@@ -758,7 +750,7 @@ const App: React.FC = () => {
                               placeholder="Notes..."
                               value={entry.ratings[effect].comment}
                               onChange={(e) => updateComment(s.name, effect, e.target.value)}
-                              className="w-full p-4 bg-slate-50 rounded-2xl text-xs outline-none focus:bg-white focus:border-pink-200 border border-transparent transition-all resize-none h-20"
+                              className="w-full p-4 bg-slate-50 rounded-2xl text-xs outline-none focus:bg-white border border-transparent transition-all resize-none h-20"
                             />
                           </div>
                         ))}
@@ -780,7 +772,7 @@ const App: React.FC = () => {
                 <p className="text-slate-400 text-sm leading-relaxed">This will delete all your notes.</p>
               </div>
               <div className="space-y-3">
-                <Button variant="danger" onClick={clearJournal}>Clear Everything</Button>
+                <Button variant="danger" onClick={clearJournal}>Clear</Button>
                 <Button variant="outline" onClick={() => setShowClearConfirm(false)}>Cancel</Button>
               </div>
             </div>
