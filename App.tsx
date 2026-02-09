@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Screen, UserData, Dispensary, Strain, JournalEntry, FlightRecord } from './types';
-import { subscribeToAuthChanges, signInWithGoogle, logout } from './firebase';
-import { findDispensaries, generateFlight } from './geminiService';
+import { Screen, UserData, Dispensary, Strain, JournalEntry, FlightRecord } from './types.ts';
+import { subscribeToAuthChanges, signInWithGoogle, logout } from './firebase.ts';
+import { findDispensaries, generateFlight } from './geminiService.ts';
 
 // static
 const TERPENE_DATA: Record<string, { desc: string, icon: string }> = {
@@ -77,7 +77,6 @@ const App: React.FC = () => {
   const [historySubTab, setHistorySubTab] = useState<'tried' | 'flights' | 'ratings' | 'recent'>('recent');
   const [searchingForStrain, setSearchingForStrain] = useState<string | null>(null);
   const [strainSearchQuery, setStrainSearchQuery] = useState('');
-  // Fix: Lifted showClearConfirm state from ProfileScreen to App scope so it is accessible in the main render return.
   const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   useEffect(() => {
@@ -231,9 +230,9 @@ const App: React.FC = () => {
 
   const AuthScreen = () => (
     <div className="h-full flex flex-col justify-center items-center px-10 bg-white text-center">
-      <div className="mb-10"><Logo size={110} /></div>
-      <h1 className="font-serif text-5xl mb-4 tracking-tight text-slate-900">Blossom</h1>
-      <div className="w-full space-y-3">
+      <div className="mb-10 animate-fade-in"><Logo size={110} /></div>
+      <h1 className="font-serif text-5xl mb-4 tracking-tight text-slate-900 animate-fade-in">Blossom</h1>
+      <div className="w-full space-y-3 animate-fade-in" style={{ animationDelay: '0.1s' }}>
         <Button onClick={handleDemoMode} variant="demo">
           Demo
         </Button>      
@@ -289,7 +288,7 @@ const App: React.FC = () => {
           )}
         </div>
 
-        <div className="flex-1 flex flex-col justify-center items-center px-10 text-center">
+        <div className="flex-1 flex flex-col justify-center items-center px-10 text-center animate-fade-in">
           <div className="mb-10"><Logo size={90} /></div>   
           <div className="w-full space-y-4">
             <Button onClick={() => setCurrentScreen(Screen.EFFECTS)} variant="primary">
@@ -313,7 +312,7 @@ const App: React.FC = () => {
   const OnboardingScreen = () => {
     const isReady = user?.age && user?.sex;
     return (
-      <div className="h-full flex flex-col p-8 bg-white">
+      <div className="h-full flex flex-col p-8 bg-white animate-fade-in">
         <div className="mb-12">
           <h2 className="font-serif text-3xl mb-2 text-slate-900">Who are you?</h2>
         </div>
@@ -349,7 +348,7 @@ const App: React.FC = () => {
   };
 
   const LocationScreen = () => (
-    <div className="h-full flex flex-col p-10 bg-white text-center justify-center items-center">
+    <div className="h-full flex flex-col p-10 bg-white text-center justify-center items-center animate-fade-in">
       <div className="w-28 h-28 bg-rose-50 rounded-full flex items-center justify-center mb-10 shadow-inner">
         <span className="text-5xl animate-bounce">📍</span>
       </div>
@@ -361,14 +360,14 @@ const App: React.FC = () => {
   );
 
   const TerpenesLibraryScreen = () => (
-    <div className="h-full flex flex-col bg-white overflow-hidden">
+    <div className="h-full flex flex-col bg-white overflow-hidden animate-fade-in">
       <div className="p-8 border-b border-slate-100 flex items-center justify-between sticky top-0 z-10 bg-white">
         <h2 className="font-serif text-3xl text-slate-900">Terpenes</h2>
         <button onClick={() => setCurrentScreen(user ? Screen.HOME : Screen.AUTH)} className="w-9 h-9 flex items-center justify-center rounded-full bg-slate-50 text-slate-400">
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
         </button>
       </div>
-      <div className="flex-1 overflow-y-auto p-3 space-y-3 no-scrollbar">
+      <div className="flex-1 overflow-y-auto p-3 space-y-3 no-scrollbar pb-10">
         {Object.entries(TERPENE_DATA).map(([name, data]) => (
           <div key={name} className="p-6 rounded-[2.5rem] bg-slate-50 border border-slate-100">
             <div className="flex items-center gap-2 mb-4">
@@ -403,11 +402,11 @@ const App: React.FC = () => {
 
     return (
       <div className="h-full flex flex-col bg-white">
-        <div className="p-8 border-b border-slate-100 flex justify-between items-end bg-white sticky top-0 z-10">
+        <div className="p-8 border-b border-slate-100 flex justify-between items-end bg-white sticky top-0 z-10 shadow-sm">
           <div>
             <h2 className="font-serif text-3xl text-slate-900">Your Flight</h2>
           </div>
-          <button onClick={() => setCurrentScreen(Screen.PROFILE)} className="w-12 h-12 rounded-2xl overflow-hidden border-2 border-pink-50">
+          <button onClick={() => setCurrentScreen(Screen.PROFILE)} className="w-12 h-12 rounded-2xl overflow-hidden border-2 border-pink-50 shadow-inner">
             <img src={user?.photoURL} alt="" className="w-full h-full object-cover" />
           </button>
         </div>
@@ -424,7 +423,7 @@ const App: React.FC = () => {
                     <div className="w-9 h-9 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs shadow-lg">{i+1}</div>
                     <h3 className="font-bold text-xl text-slate-900 text-left">{s.name}</h3>
                   </div>
-                  <div className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
+                  <div className={`transition-transform duration-300 ${isExpanded ? 'rotate-180 text-pink-500' : 'text-slate-300'}`}>
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6"/></svg>
                   </div>
                 </button>
@@ -454,7 +453,7 @@ const App: React.FC = () => {
                                 <span className="text-lg">{info.icon}</span>
                               </button>
                               {isTerpExpanded && (
-                                <div className="p-4 bg-slate-800 text-white/80 text-[11px] rounded-2xl mt-2 animate-in fade-in zoom-in-95 leading-relaxed">
+                                <div className="p-4 bg-slate-800 text-white/80 text-[11px] rounded-2xl mt-2 animate-in fade-in zoom-in-95 leading-relaxed shadow-inner">
                                   {info.desc}
                                 </div>
                               )}
@@ -494,9 +493,7 @@ const App: React.FC = () => {
   const ProfileScreen = () => {
     const [isEditing, setIsEditing] = useState(false);
     const [editData, setEditData] = useState(user);
-    // showClearConfirm state has been lifted to App component scope
 
-    // Filtered data for subtabs
     const triedStrains = useMemo(() => Object.values(user?.journal || {}).filter(j => j.acquired), [user?.journal]);
     const recentEntries = useMemo(() => 
       Object.values(user?.journal || {})
@@ -529,7 +526,7 @@ const App: React.FC = () => {
     };
 
     return (
-      <div className="h-full flex flex-col bg-white overflow-hidden relative">
+      <div className="h-full flex flex-col bg-white overflow-hidden relative animate-fade-in">
         <div className="p-8 bg-slate-900 text-white text-center relative overflow-hidden">
           <button onClick={() => setCurrentScreen(Screen.HOME)} className="absolute left-8 top-10 text-white/50 hover:text-white transition-colors">
              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
@@ -615,7 +612,7 @@ const App: React.FC = () => {
                         const ratedValues = Object.values(entry.ratings).filter(r => r.score > 0);
                         const avg = ratedValues.length > 0 ? (ratedValues.reduce((a, b) => a + b.score, 0) / ratedValues.length).toFixed(1) : '—';
                         return (
-                          <div key={entry.strainName} className="p-5 rounded-3xl border border-slate-100 bg-slate-50 flex items-center justify-between">
+                          <div key={entry.strainName} className="p-5 rounded-3xl border border-slate-100 bg-slate-50 flex items-center justify-between shadow-sm">
                             <div>
                               <h4 className="font-bold text-slate-900">{entry.strainName}</h4>
                               <p className="text-[9px] text-slate-400">{new Date(entry.timestamp).toLocaleDateString()}</p>
@@ -645,7 +642,7 @@ const App: React.FC = () => {
                   <>
                     {(!user?.flightsHistory || user.flightsHistory.length === 0) ? <p className="text-center text-slate-300 italic text-xs py-10">No flight history found.</p> : 
                       user.flightsHistory.map(record => (
-                        <div key={record.id} className="p-5 rounded-3xl border border-slate-100 bg-slate-50 space-y-3">
+                        <div key={record.id} className="p-5 rounded-3xl border border-slate-100 bg-slate-50 space-y-3 shadow-sm">
                           <div className="flex justify-between items-center">
                             <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{new Date(record.timestamp).toLocaleDateString()}</span>
                             <div className="flex gap-1">
@@ -654,7 +651,7 @@ const App: React.FC = () => {
                           </div>
                           <div className="flex flex-wrap gap-2">
                             {record.strains.map(s => (
-                              <span key={s.name} className="text-[10px] font-bold text-slate-900 bg-white px-2 py-1 rounded-lg border border-slate-100">{s.name}</span>
+                              <span key={s.name} className="text-[10px] font-bold text-slate-900 bg-white px-2 py-1 rounded-lg border border-slate-100 shadow-sm">{s.name}</span>
                             ))}
                           </div>
                         </div>
@@ -672,8 +669,8 @@ const App: React.FC = () => {
                             <span>{effect}</span>
                             <span className="text-pink-600">{avg.toFixed(1)} / 5</span>
                           </div>
-                          <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                            <div className="h-full bg-pink-600 rounded-full" style={{ width: `${(avg/5)*100}%` }}></div>
+                          <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden shadow-inner">
+                            <div className="h-full bg-pink-600 rounded-full transition-all duration-1000" style={{ width: `${(avg/5)*100}%` }}></div>
                           </div>
                         </div>
                       ))
@@ -689,7 +686,7 @@ const App: React.FC = () => {
   };
 
   const LoadingScreen = () => (
-    <div className="h-full flex flex-col justify-center items-center p-12 bg-white text-center">
+    <div className="h-full flex flex-col justify-center items-center p-12 bg-white text-center animate-fade-in">
       <Logo size={90} />
       <div className="mt-12"><LoadingIndicator message="Doing Some Magic..." /></div>
     </div>
@@ -714,7 +711,7 @@ const App: React.FC = () => {
       setUser({...user, effects});
     };
     return (
-      <div className="h-full flex flex-col p-8 bg-white">
+      <div className="h-full flex flex-col p-8 bg-white animate-fade-in">
         <h2 className="font-serif text-3xl mb-2 text-slate-900">How do you want to feel?</h2>
         <div className="flex-1 grid grid-cols-2 gap-4 overflow-y-auto no-scrollbar pb-6">
           {options.map(o => (
@@ -734,40 +731,43 @@ const App: React.FC = () => {
   };
 
   const DispensaryListScreen = () => (
-    <div className="h-full flex flex-col bg-slate-50">
-      <div className="p-8 bg-white border-b border-slate-100 flex items-center gap-4">
-        <button onClick={() => setCurrentScreen(Screen.FLIGHT)} className="text-slate-400">
+    <div className="h-full flex flex-col bg-slate-50 animate-fade-in">
+      <div className="p-8 bg-white border-b border-slate-100 flex items-center gap-4 sticky top-0 z-10 shadow-sm">
+        <button onClick={() => setCurrentScreen(Screen.FLIGHT)} className="text-slate-400 p-2 hover:bg-slate-50 rounded-full transition-colors">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
         </button>
-        <h2 className="font-serif text-xl">{searchingForStrain} Near You</h2>
+        <h2 className="font-serif text-xl truncate">{searchingForStrain} Near You</h2>
       </div>
       <div className="flex-1 overflow-y-auto p-5 space-y-4 no-scrollbar">
-        {dispensaries.map(d => (
-          <div key={d.id} className="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm">
+        {dispensaries.length > 0 ? dispensaries.map(d => (
+          <div key={d.id} className="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm animate-in slide-in-from-bottom-2">
             <div className="flex justify-between items-start mb-2">
-              <h3 className="font-bold">{d.name}</h3>
-              <p className="text-xs text-slate-400">{d.distance}</p>
+              <h3 className="font-bold text-slate-800">{d.name}</h3>
+              <p className="text-xs text-pink-500 font-bold">{d.distance}</p>
             </div>
             {d.uri && (
-              <a href={d.uri} target="_blank" rel="noopener noreferrer" className="inline-block mt-3 text-pink-600 text-xs font-bold">Show on Map →</a>
+              <a href={d.uri} target="_blank" rel="noopener noreferrer" className="inline-block mt-3 text-pink-600 text-xs font-black uppercase tracking-widest hover:underline">Show on Map →</a>
             )}
           </div>
-        ))}
+        )) : <p className="text-center text-slate-300 italic py-10">No nearby dispensaries found.</p>}
       </div>
     </div>
   );
 
   const BlockedScreen = () => (
-    <div className="p-20 text-center h-full flex flex-col items-center justify-center">
+    <div className="p-20 text-center h-full flex flex-col items-center justify-center bg-white animate-fade-in">
       <Logo color="#ef4444" />
-      <h2 className="font-serif text-3xl mt-10">21+ Only</h2>
-      <Button variant="danger" className="mt-8" onClick={() => { logout(); setCurrentScreen(Screen.AUTH); }}>Exit</Button>
+      <h2 className="font-serif text-3xl mt-10 text-slate-900">21+ Only</h2>
+      <p className="text-slate-400 mt-4 text-sm">Blossom is strictly for individuals aged 21 and over.</p>
+      <Button variant="danger" className="mt-12" onClick={() => { logout(); setCurrentScreen(Screen.AUTH); }}>Exit</Button>
     </div>
   );
 
   const FeedbackScreen = () => (
-    <div className="p-10 h-full flex flex-col items-center justify-center">
-       <h2 className="font-serif text-2xl mb-8">Got Feedback?</h2>
+    <div className="p-10 h-full flex flex-col items-center justify-center animate-fade-in">
+       <div className="w-20 h-20 bg-indigo-50 text-indigo-500 rounded-full flex items-center justify-center text-3xl mb-8">📬</div>
+       <h2 className="font-serif text-2xl mb-2 text-slate-900">Got Feedback?</h2>
+       <p className="text-slate-400 text-center mb-10 text-sm">We'd love to hear how we can improve your vibe.</p>
        <Button onClick={() => setCurrentScreen(Screen.HOME)}>Back to Home</Button>
     </div>
   );

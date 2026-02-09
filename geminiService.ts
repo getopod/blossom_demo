@@ -1,7 +1,7 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { Dispensary, Strain } from "./types";
-import { FALLBACK_STRAINS } from "./fallbackData";
+import { Dispensary, Strain } from "./types.ts";
+import { FALLBACK_STRAINS } from "./fallbackData.ts";
 
 export const findDispensaries = async (lat: number, lng: number, strainName?: string): Promise<Dispensary[]> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -10,7 +10,6 @@ export const findDispensaries = async (lat: number, lng: number, strainName?: st
       ? `Find the top 3 highly rated cannabis dispensaries near coordinates latitude ${lat}, longitude ${lng} that are likely to carry the strain "${strainName}". Provide their names and website links.`
       : `Find the top 3 highly rated cannabis dispensaries near coordinates latitude ${lat}, longitude ${lng}. Provide their names and website links.`;
 
-    // Fix: Using gemini-2.5-flash as it is the only series supporting Maps Grounding.
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: query,
@@ -29,7 +28,6 @@ export const findDispensaries = async (lat: number, lng: number, strainName?: st
 
     const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
     
-    // Fix: Extracted grounding metadata including URIs and review snippets as per guidelines.
     if (chunks && chunks.length > 0) {
       return chunks
         .filter((chunk: any) => chunk.maps)
@@ -65,7 +63,6 @@ export const generateFlight = async (effects: string[]): Promise<Strain[]> => {
     const prompt = `Curate a "cannabis flight" of 3 distinct strains that help achieve these effects: ${effects.join(', ')}. 
     For each strain, provide: name, brand, THC%, CBD%, list of primary terpenes, and a short 1-sentence description of the experience.`;
 
-    // Fix: Using gemini-3-pro-preview for complex reasoning tasks.
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: prompt,
@@ -89,26 +86,18 @@ export const generateFlight = async (effects: string[]): Promise<Strain[]> => {
       }
     });
 
-    // Fix: Property access for text output.
     const jsonStr = response.text?.trim() || '[]';
     return JSON.parse(jsonStr);
   } catch (error) {
     console.warn("Gemini API flight generation failed, using local fallback data.", error);
-    
-    // Fallback logic: Match strains against user-selected effects
     const matches = FALLBACK_STRAINS.filter(strain => 
       strain.associatedEffects.some(effect => effects.includes(effect))
     );
-    
-    // Sort by number of matches to get most relevant first
     const sorted = [...matches].sort((a, b) => {
       const countA = a.associatedEffects.filter(e => effects.includes(e)).length;
       const countB = b.associatedEffects.filter(e => effects.includes(e)).length;
       return countB - countA;
     });
-
-    // If we have at least 3 matches, return the best ones. 
-    // Otherwise, pad with random fallback strains to ensure we always give 3 results.
     const result = sorted.slice(0, 3);
     while (result.length < 3) {
       const randomStrain = FALLBACK_STRAINS[Math.floor(Math.random() * FALLBACK_STRAINS.length)];
@@ -116,8 +105,6 @@ export const generateFlight = async (effects: string[]): Promise<Strain[]> => {
         result.push(randomStrain);
       }
     }
-    
-    // Remove the association metadata before returning to satisfy the Strain interface
     return result.map(({ associatedEffects, ...strain }) => strain);
   }
 };

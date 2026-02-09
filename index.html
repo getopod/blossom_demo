@@ -33,6 +33,10 @@
       animation: fadeIn 0.4s ease-out forwards;
     }
   </style>
+  <script>
+    // Shim process for browser environment to prevent crashes on Vercel deployment
+    window.process = window.process || { env: { API_KEY: '' } };
+  </script>
 <script type="importmap">
 {
   "imports": {
@@ -47,7 +51,6 @@
 </head>
 <body class="bg-slate-50 text-slate-900">
   <div id="root"></div>
-  <!-- Explicit module script to fix white screen on deployment -->
   <script type="module" src="./index.tsx"></script>
 </body>
 </html>
