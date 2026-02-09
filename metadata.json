@@ -1,0 +1,7 @@
+{
+  "name": "Blossom",
+  "description": "Strains by Vibe.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
