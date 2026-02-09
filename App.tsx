@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Screen, UserData, Dispensary, Strain, JournalEntry, FlightRecord } from './types.ts';
-import { subscribeToAuthChanges, signInWithGoogle, logout } from './firebase.ts';
+import { subscribeToAuthChanges, signInWithGoogle, logout, auth } from './firebase.ts';
 import { findDispensaries, generateFlight } from './geminiService.ts';
 
 // static
@@ -795,7 +795,7 @@ const App: React.FC = () => {
 
   return (
     <div className="fixed inset-0 bg-slate-100 flex items-center justify-center p-0 md:p-10">
-      <div className="w-full h-full md:w-[375px] md:max-h-[90vh] bg-white md:rounded-[3.5rem] shadow-2xl overflow-hidden relative flex flex-col border border-slate-200/50">
+      <div className="w-full h-full md:w-[375px] md:max-h-[90dvh] bg-white md:rounded-[3.5rem] shadow-2xl overflow-hidden relative flex flex-col border border-slate-200/50">
         {renderScreen()}
         {showClearConfirm && (
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-8 animate-in fade-in">
