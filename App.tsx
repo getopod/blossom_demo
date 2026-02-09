@@ -312,7 +312,7 @@ const App: React.FC = () => {
   const OnboardingScreen = () => {
     const isReady = user?.age && user?.sex;
     return (
-      <div className="h-full flex flex-col p-8 bg-white animate-fade-in">
+      <div className="h-full flex flex-col p-8 bg-white animate-fade-in overflow-y-auto no-scrollbar">
         <div className="mb-12">
           <h2 className="font-serif text-3xl mb-2 text-slate-900">Who are you?</h2>
         </div>
@@ -321,7 +321,7 @@ const App: React.FC = () => {
             <label className="text-[10px] uppercase font-black text-slate-300 tracking-[0.2em]">Age</label>
             <input 
               type="number" 
-              placeholder="" 
+              placeholder="e.g. 21" 
               className="w-full p-5 bg-slate-50 border border-slate-100 rounded-3xl outline-none focus:border-pink-500 transition-all text-xl font-medium"
               value={user?.age || ''}
               onChange={(e) => setUser(u => u ? ({...u, age: parseInt(e.target.value)}) : null)}
@@ -342,7 +342,9 @@ const App: React.FC = () => {
             </div>
           </div>
         </div>
-        <Button disabled={!isReady} onClick={handleAgeCheck}>Continue</Button>
+        <div className="pt-8">
+          <Button disabled={!isReady} onClick={handleAgeCheck}>Continue</Button>
+        </div>
       </div>
     );
   };
@@ -352,7 +354,8 @@ const App: React.FC = () => {
       <div className="w-28 h-28 bg-rose-50 rounded-full flex items-center justify-center mb-10 shadow-inner">
         <span className="text-5xl animate-bounce">📍</span>
       </div>
-      <h2 className="font-serif text-3xl mb-4 text-slate-900">Where?</h2>
+      <h2 className="font-serif text-3xl mb-4 text-slate-900">Where are you?</h2>
+      <p className="text-slate-400 text-sm mb-10">We need your location to find strains at nearby dispensaries.</p>
       <Button onClick={handleLocationFetch} disabled={loading}>
         {loading ? <LoadingIndicator message="" /> : 'Enable Location'}
       </Button>
@@ -404,7 +407,7 @@ const App: React.FC = () => {
       <div className="h-full flex flex-col bg-white">
         <div className="p-8 border-b border-slate-100 flex justify-between items-end bg-white sticky top-0 z-10 shadow-sm">
           <div>
-            <h2 className="font-serif text-3xl text-slate-900">Flight</h2>
+            <h2 className="font-serif text-3xl text-slate-900">Your Flight</h2>
           </div>
           <button onClick={() => setCurrentScreen(Screen.PROFILE)} className="w-12 h-12 rounded-2xl overflow-hidden border-2 border-pink-50 shadow-inner">
             <img src={user?.photoURL} alt="" className="w-full h-full object-cover" />
@@ -583,6 +586,8 @@ const App: React.FC = () => {
                     </div>
                   </div>
                   <div className="space-y-3 pt-6">
+                    <Button variant="outline" onClick={() => setIsEditing(true)}>Edit Profile</Button>
+                    <Button variant="danger" onClick={() => setShowClearConfirm(true)}>Clear Journal</Button>
                     <Button variant="ghost" onClick={() => { setUser(null); setCurrentScreen(Screen.AUTH); logout(); }}>Sign Out</Button>
                   </div>
                 </div>
@@ -790,7 +795,7 @@ const App: React.FC = () => {
 
   return (
     <div className="fixed inset-0 bg-slate-100 flex items-center justify-center p-0 md:p-10">
-      <div className="w-full h-full md:w-[375px] md:h-[667px] bg-white md:rounded-[3.5rem] shadow-2xl overflow-hidden relative flex flex-col border border-slate-200/50">
+      <div className="w-full h-full md:w-[375px] md:max-h-[90vh] bg-white md:rounded-[3.5rem] shadow-2xl overflow-hidden relative flex flex-col border border-slate-200/50">
         {renderScreen()}
         {showClearConfirm && (
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-8 animate-in fade-in">
