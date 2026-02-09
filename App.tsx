@@ -352,7 +352,7 @@ const App: React.FC = () => {
       <div className="w-28 h-28 bg-rose-50 rounded-full flex items-center justify-center mb-10 shadow-inner">
         <span className="text-5xl animate-bounce">📍</span>
       </div>
-      <h2 className="font-serif text-3xl mb-4 text-slate-900">Where are you?</h2>
+      <h2 className="font-serif text-3xl mb-4 text-slate-900">Where?</h2>
       <Button onClick={handleLocationFetch} disabled={loading}>
         {loading ? <LoadingIndicator message="" /> : 'Enable Location'}
       </Button>
@@ -404,7 +404,7 @@ const App: React.FC = () => {
       <div className="h-full flex flex-col bg-white">
         <div className="p-8 border-b border-slate-100 flex justify-between items-end bg-white sticky top-0 z-10 shadow-sm">
           <div>
-            <h2 className="font-serif text-3xl text-slate-900">Your Flight</h2>
+            <h2 className="font-serif text-3xl text-slate-900">Flight</h2>
           </div>
           <button onClick={() => setCurrentScreen(Screen.PROFILE)} className="w-12 h-12 rounded-2xl overflow-hidden border-2 border-pink-50 shadow-inner">
             <img src={user?.photoURL} alt="" className="w-full h-full object-cover" />
@@ -583,8 +583,6 @@ const App: React.FC = () => {
                     </div>
                   </div>
                   <div className="space-y-3 pt-6">
-                    <Button variant="outline" onClick={() => setIsEditing(true)}>Edit Profile</Button>
-                    <Button variant="danger" onClick={() => setShowClearConfirm(true)}>Clear Journal</Button>
                     <Button variant="ghost" onClick={() => { setUser(null); setCurrentScreen(Screen.AUTH); logout(); }}>Sign Out</Button>
                   </div>
                 </div>
