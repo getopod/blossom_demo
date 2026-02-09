@@ -32,6 +32,7 @@ export interface Dispensary {
   reviewsCount: number;
   distance: string;
   uri?: string;
+  reviewSnippets?: string[];
 }
 
 export interface Strain {

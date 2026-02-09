@@ -243,7 +243,7 @@ const App: React.FC = () => {
 
   const HomeScreen = () => {
     const filteredStrains = strainSearchQuery 
-      ? POPULAR_STRAINS.filter(s => s.includes(strainSearchQuery)) 
+      ? POPULAR_STRAINS.filter(s => s.toLowerCase().includes(strainSearchQuery.toLowerCase())) 
       : [];
 
     return (
@@ -284,7 +284,7 @@ const App: React.FC = () => {
                   </button>
                 ))
               ) : (
-                <div className="p-4 text-center text-slate-300 text-xs italic">No matches (Case-sensitive)</div>
+                <div className="p-4 text-center text-slate-300 text-xs italic">No matches</div>
               )}
             </div>
           )}
@@ -497,7 +497,7 @@ const App: React.FC = () => {
         </div>
       </div>
       <div className="flex-1 overflow-y-auto p-5 space-y-4 no-scrollbar">
-        {dispensaries.length === 0 && <p className="text-center py-10 text-slate-400 text-sm italic">Doing More Magic...</p>}
+        {dispensaries.length === 0 && <p className="text-center py-10 text-slate-400 text-sm italic">Searching local shops...</p>}
         {dispensaries.map(d => (
           <div 
             key={d.id} 
@@ -513,14 +513,27 @@ const App: React.FC = () => {
               <span>({d.reviewsCount})</span>
             </div>
             <div className="text-[10px] text-slate-300 mb-2">{d.address}</div>
+            
+            {/* Fix: Displaying review snippets as required by Maps grounding guidelines */}
+            {d.reviewSnippets && d.reviewSnippets.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-slate-50 space-y-3">
+                {d.reviewSnippets.map((snippet, idx) => (
+                  <div key={idx} className="flex gap-2">
+                    <span className="text-slate-300 text-[10px]">💬</span>
+                    <p className="text-[10px] text-slate-500 italic leading-relaxed">"{snippet}"</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {d.uri && (
               <a 
                 href={d.uri} 
                 target="_blank" 
                 rel="noopener noreferrer" 
-                className="inline-block bg-pink-50 text-pink-600 px-4 py-2 rounded-xl text-[10px] font-bold mt-2"
+                className="inline-block bg-pink-50 text-pink-600 px-4 py-2 rounded-xl text-[10px] font-bold mt-4"
               >
-                Show Me
+                Show in Maps
               </a>
             )}
           </div>
@@ -645,7 +658,6 @@ const App: React.FC = () => {
     const [editData, setEditData] = useState(user);
     const [showClearConfirm, setShowClearConfirm] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
-    const [expandedDetails, setExpandedDetails] = useState<string | null>(null);
 
     const updateJournal = (strainName: string, updates: Partial<JournalEntry>) => {
       if (!user) return;
@@ -682,8 +694,8 @@ const App: React.FC = () => {
       setIsEditing(false);
     };
 
-    const filteredJournal = (flight.length > 0 ? flight : Object.values(user?.journal || {}).map(e => ({ name: e.strainName, brand: 'Blossom Curated', thc: '', cbd: '', description: '', terpenes: [] }))).filter(s => 
-      s.name.toLowerCase().includes(searchTerm.toLowerCase())
+    const filteredJournal = Object.values(user?.journal || {}).filter(e => 
+      e.strainName.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     return (
@@ -756,7 +768,7 @@ const App: React.FC = () => {
               <div className="relative mb-4">
                 <input 
                   type="text" 
-                  placeholder="Search..." 
+                  placeholder="Search journal..." 
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
                   className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-3xl outline-none focus:border-pink-500 text-sm"
@@ -766,10 +778,11 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              {filteredJournal.map((s, i) => {
-                const entry = user?.journal[s.name];
-                if (!entry) return null;
-
+              {filteredJournal.length === 0 ? (
+                <div className="p-12 text-center">
+                   <p className="text-slate-300 text-sm italic">No entries found.</p>
+                </div>
+              ) : filteredJournal.map((entry, i) => {
                 return (
                   <div key={i} className={`p-6 rounded-[2.5rem] border-2 transition-all ${entry.acquired ? 'border-pink-100 bg-white shadow-md' : 'border-slate-50 bg-slate-50 opacity-60'}`}>
                     <div className="flex items-center justify-between mb-4">
@@ -777,10 +790,10 @@ const App: React.FC = () => {
                         <input 
                           type="checkbox" 
                           checked={entry.acquired} 
-                          onChange={(e) => updateJournal(s.name, { acquired: e.target.checked })}
+                          onChange={(e) => updateJournal(entry.strainName, { acquired: e.target.checked })}
                           className="w-5 h-5 accent-pink-600 rounded-lg"
                         />
-                        <h3 className="font-bold text-slate-900">{s.name}</h3>
+                        <h3 className="font-bold text-slate-900">{entry.strainName}</h3>
                       </div>
                     </div>
 
@@ -794,8 +807,8 @@ const App: React.FC = () => {
                                 {[1, 2, 3, 4, 5].map(star => (
                                   <button 
                                     key={star} 
-                                    onClick={() => updateRating(s.name, effect, star)}
-                                    className={`text-lg ${star <= entry.ratings[effect].score ? 'text-pink-600' : 'text-slate-200'}`}
+                                    onClick={() => updateRating(entry.strainName, effect, star)}
+                                    className={`text-lg ${star <= (entry.ratings[effect]?.score || 0) ? 'text-pink-600' : 'text-slate-200'}`}
                                   >
                                     ★
                                   </button>
@@ -804,8 +817,8 @@ const App: React.FC = () => {
                             </div>
                             <textarea 
                               placeholder="Notes..."
-                              value={entry.ratings[effect].comment}
-                              onChange={(e) => updateComment(s.name, effect, e.target.value)}
+                              value={entry.ratings[effect]?.comment || ''}
+                              onChange={(e) => updateComment(entry.strainName, effect, e.target.value)}
                               className="w-full p-4 bg-slate-50 rounded-2xl text-xs outline-none focus:bg-white border border-transparent transition-all resize-none h-20"
                             />
                           </div>
