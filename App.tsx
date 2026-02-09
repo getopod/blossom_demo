@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Screen, UserData, Dispensary, Strain } from './types';
+import { Screen, UserData, Dispensary, Strain, JournalEntry } from './types';
 import { subscribeToAuthChanges, signInWithGoogle, logout } from './firebase';
-import { findDispensaries, generateFlight, getTripGuideResponse } from './geminiService';
+import { findDispensaries, generateFlight } from './geminiService';
 
 // --- Components ---
 
@@ -16,7 +16,7 @@ const LoadingIndicator: React.FC<{ message?: string; dark?: boolean }> = ({ mess
 const Button: React.FC<{ 
   onClick: () => void; 
   disabled?: boolean; 
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'demo';
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'demo' | 'danger';
   children: React.ReactNode;
   className?: string;
 }> = ({ onClick, disabled, variant = 'primary', children, className = "" }) => {
@@ -26,7 +26,8 @@ const Button: React.FC<{
     secondary: "bg-slate-900 text-white shadow-lg",
     outline: "border-2 border-slate-100 text-slate-700 hover:border-pink-200 hover:bg-pink-50/30",
     ghost: "text-slate-400 hover:text-slate-600 hover:bg-slate-50",
-    demo: "bg-indigo-50 text-indigo-600 border border-indigo-100"
+    demo: "bg-indigo-50 text-indigo-600 border border-indigo-100",
+    danger: "bg-rose-50 text-rose-600 border border-rose-100"
   };
   
   return (
@@ -48,8 +49,6 @@ const Logo = ({ size = 60, color = "#db2777" }: { size?: number, color?: string 
   </svg>
 );
 
-// --- App Root ---
-
 const App: React.FC = () => {
   const [currentScreen, setCurrentScreen] = useState<Screen>(Screen.AUTH);
   const [user, setUser] = useState<UserData | null>(null);
@@ -69,8 +68,9 @@ const App: React.FC = () => {
           age: null,
           sex: '',
           effects: [],
+          journal: {}
         });
-        setCurrentScreen(Screen.AGE_VERIFY);
+        setCurrentScreen(Screen.ONBOARDING);
       }
     });
     return () => unsubscribe();
@@ -80,21 +80,27 @@ const App: React.FC = () => {
     setUser({
       uid: 'demo-user-123',
       email: 'demo@blossom.ai',
-      displayName: 'Demo Guest',
+      displayName: 'Demo',
       photoURL: 'https://api.dicebear.com/7.x/avataaars/svg?seed=demo',
       age: null,
       sex: '',
       effects: [],
+      journal: {}
     });
-    setCurrentScreen(Screen.AGE_VERIFY);
+    setCurrentScreen(Screen.ONBOARDING);
+  };
+
+  const handleAgeCheck = () => {
+    if (user && user.age !== null) {
+      if (user.age < 21) {
+        setCurrentScreen(Screen.BLOCKED);
+      } else {
+        setCurrentScreen(Screen.LOCATION);
+      }
+    }
   };
 
   const handleLocationFetch = useCallback(async () => {
-    if (!navigator.geolocation) {
-      alert("Location not supported by browser");
-      return;
-    }
-    
     setLoading(true);
     navigator.geolocation.getCurrentPosition(
       async (position) => {
@@ -107,9 +113,7 @@ const App: React.FC = () => {
         setLoading(false);
         setCurrentScreen(Screen.EFFECTS);
       },
-      (error) => {
-        console.error(error);
-        alert("Location failure. Using mock  data for demo.");
+      () => {
         findDispensaries(37.7749, -122.4194).then(nearby => {
           setDispensaries(nearby);
           setLoading(false);
@@ -126,50 +130,52 @@ const App: React.FC = () => {
     try {
       const results = await generateFlight(user.effects);
       setFlight(results);
+      // pre-populate journal
+      const newJournal: Record<string, JournalEntry> = { ...user.journal };
+      results.forEach(s => {
+        if (!newJournal[s.name]) {
+          newJournal[s.name] = {
+            strainName: s.name,
+            acquired: false,
+            ratings: user.effects.reduce((acc, effect) => {
+              acc[effect] = { score: 0, comment: '' };
+              return acc;
+            }, {} as Record<string, { score: number; comment: string }>)
+          };
+        }
+      });
+      setUser({ ...user, journal: newJournal });
       setCurrentScreen(Screen.FLIGHT);
     } catch (e) {
-      console.error(e);
-      alert("Something is wrong'. Please try again.");
       setCurrentScreen(Screen.DISPENSARIES);
     } finally {
       setLoading(false);
     }
   };
 
-  // --- Screen Components ---
-
   const AuthScreen = () => (
     <div className="h-full flex flex-col justify-center items-center px-10 bg-white text-center">
       <div className="mb-10"><Logo size={110} /></div>
       <h1 className="font-serif text-5xl mb-4 tracking-tight text-slate-900">Blossom</h1>
       <p className="text-slate-400 mb-12 text-sm leading-relaxed max-w-[240px]">Personalized cannabis curation.</p>
-      
       <div className="w-full space-y-3">
-        <Button onClick={() => signInWithGoogle().catch(() => alert("Auth failed. Please use Demo Mode."))} variant="outline">
+        <Button onClick={() => signInWithGoogle().catch(handleDemoMode)} variant="outline">
           <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt=""/>
           Continue with Google
         </Button>
         <Button onClick={handleDemoMode} variant="demo">
           Try as Guest (Demo Mode)
         </Button>
-        <div className="pt-6">
-          <p className="text-[10px] text-slate-300 uppercase font-black tracking-widest leading-loose">
-            By continuing you agree to our<br/>Terms of Service & Privacy Policy
-          </p>
-        </div>
       </div>
     </div>
   );
 
-  const AgeVerifyScreen = () => (
+  const BlockedScreen = () => (
     <div className="h-full flex flex-col justify-center items-center px-10 text-center bg-white">
-      <div className="w-24 h-24 bg-pink-50 rounded-full flex items-center justify-center mb-8 text-4xl shadow-inner">🔞</div>
-      <h2 className="font-serif text-3xl mb-4">Verification</h2>
-      <p className="text-slate-400 mb-12 text-sm">Blossom is for adults. Please confirm your age.</p>
-      <div className="w-full space-y-4">
-        <Button onClick={() => setCurrentScreen(Screen.ONBOARDING)}>I am 21 or older</Button>
-        <Button onClick={() => { setUser(null); setCurrentScreen(Screen.AUTH); }} variant="ghost">I am under 21</Button>
-      </div>
+      <div className="w-24 h-24 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mb-8 text-4xl shadow-inner">🚫</div>
+      <h2 className="font-serif text-3xl mb-4 text-slate-900">Adults Only</h2>
+      <p className="text-slate-400 mb-12 text-sm leading-relaxed">Blossom is for adults. Come back when you are older.</p>
+      <Button onClick={() => { setUser(null); setCurrentScreen(Screen.AUTH); logout(); }} variant="secondary">Exit</Button>
     </div>
   );
 
@@ -178,7 +184,7 @@ const App: React.FC = () => {
     return (
       <div className="h-full flex flex-col p-8 bg-white">
         <div className="mb-12">
-          <h2 className="font-serif text-3xl mb-2">About you</h2>
+          <h2 className="font-serif text-3xl mb-2 text-slate-900">Who are you?</h2>
         </div>
         <div className="flex-1 space-y-10">
           <div className="space-y-4">
@@ -198,7 +204,7 @@ const App: React.FC = () => {
                 <button 
                   key={s}
                   onClick={() => setUser(u => u ? ({...u, sex: s}) : null)}
-                  className={`py-5 rounded-3xl border-2 transition-all font-bold ${user?.sex === s ? 'border-pink-600 bg-pink-50 text-pink-600 shadow-md' : 'border-slate-50 bg-slate-50 text-slate-400 hover:border-slate-200'}`}
+                  className={`py-5 rounded-3xl border-2 transition-all font-bold text-sm ${user?.sex === s ? 'border-pink-600 bg-pink-50 text-pink-600 shadow-md' : 'border-slate-50 bg-slate-50 text-slate-400'}`}
                 >
                   {s}
                 </button>
@@ -206,7 +212,7 @@ const App: React.FC = () => {
             </div>
           </div>
         </div>
-        <Button disabled={!isReady} onClick={() => setCurrentScreen(Screen.LOCATION)}>Continue</Button>
+        <Button disabled={!isReady} onClick={handleAgeCheck}>Continue</Button>
       </div>
     );
   };
@@ -216,8 +222,8 @@ const App: React.FC = () => {
       <div className="w-28 h-28 bg-rose-50 rounded-full flex items-center justify-center mb-10 shadow-inner">
         <span className="text-5xl animate-bounce">📍</span>
       </div>
-      <h2 className="font-serif text-3xl mb-4">Location</h2>
-      <p className="text-slate-400 text-sm mb-12 leading-relaxed">We need it to find real inventory.</p>
+      <h2 className="font-serif text-3xl mb-4 text-slate-900">Location</h2>
+      <p className="text-slate-400 text-sm mb-12 leading-relaxed">We need this to give real advice.</p>
       <Button onClick={handleLocationFetch} disabled={loading}>
         {loading ? <LoadingIndicator message="" /> : 'Enable Location'}
       </Button>
@@ -244,8 +250,7 @@ const App: React.FC = () => {
     };
     return (
       <div className="h-full flex flex-col p-8 bg-white">
-        <h2 className="font-serif text-3xl mb-2">How do you want to feel?</h2>
-        <p className="text-slate-400 text-sm mb-8"></p>
+        <h2 className="font-serif text-3xl mb-2 text-slate-900">How do you want to feel?</h2>
         <div className="flex-1 grid grid-cols-2 gap-4 overflow-y-auto no-scrollbar pb-6">
           {options.map(o => (
             <button 
@@ -266,36 +271,27 @@ const App: React.FC = () => {
   const DispensaryListScreen = () => (
     <div className="h-full flex flex-col bg-slate-50">
       <div className="p-8 bg-white border-b border-slate-100 flex justify-between items-center">
-        <h2 className="font-serif text-3xl">Local Shops</h2>
-        <span className="bg-emerald-50 text-emerald-600 text-[10px] font-black px-3 py-1 rounded-full uppercase">Live</span>
+        <h2 className="font-serif text-3xl text-slate-900">Dispensaries</h2>
       </div>
       <div className="flex-1 overflow-y-auto p-5 space-y-4 no-scrollbar">
-        {dispensaries.length === 0 ? (
-          <div className="py-20 text-center text-slate-300 italic text-sm">Nothing...</div>
-        ) : (
-          dispensaries.map(d => (
-            <div 
-              key={d.id} 
-              onClick={() => setSelectedDispensary(d)} 
-              className={`p-6 rounded-[2rem] bg-white border-2 cursor-pointer transition-all duration-300 ${selectedDispensary?.id === d.id ? 'border-pink-600 shadow-xl' : 'border-transparent shadow-sm'}`}
-            >
-              <div className="flex justify-between items-start mb-2">
-                <h3 className={`font-bold ${selectedDispensary?.id === d.id ? 'text-pink-600' : 'text-slate-800'}`}>{d.name}</h3>
-                <span className="text-pink-500 font-bold text-[10px]">{d.distance}</span>
-              </div>
-              <div className="flex items-center gap-2 text-slate-400 text-xs mb-4">
-                <span>★</span>
-                <span className="font-bold text-slate-600">{d.rating}</span>
-                <span>({d.reviewsCount})</span>
-              </div>
-              <div className="text-[10px] text-slate-300">
-                {d.uri ? (
-                  <a href={d.uri} target="_blank" rel="noopener noreferrer" className="text-pink-500 underline" onClick={e => e.stopPropagation()}>View on Maps</a>
-                ) : d.address}
-              </div>
+        {dispensaries.map(d => (
+          <div 
+            key={d.id} 
+            onClick={() => setSelectedDispensary(d)} 
+            className={`p-6 rounded-[2rem] bg-white border-2 cursor-pointer transition-all duration-300 ${selectedDispensary?.id === d.id ? 'border-pink-600 shadow-xl' : 'border-transparent shadow-sm'}`}
+          >
+            <div className="flex justify-between items-start mb-2">
+              <h3 className={`font-bold ${selectedDispensary?.id === d.id ? 'text-pink-600' : 'text-slate-800'}`}>{d.name}</h3>
+              <span className="text-pink-500 font-bold text-[10px]">{d.distance}</span>
             </div>
-          ))
-        )}
+            <div className="flex items-center gap-2 text-slate-400 text-xs mb-4">
+              <span className="text-yellow-400">★</span>
+              <span className="font-bold text-slate-600">{d.rating}</span>
+              <span>({d.reviewsCount})</span>
+            </div>
+            <div className="text-[10px] text-slate-300">{d.address}</div>
+          </div>
+        ))}
       </div>
       <div className="p-8 bg-white border-t border-slate-100">
         <Button disabled={!selectedDispensary} onClick={handleFlightGeneration}>Curate My Flight</Button>
@@ -306,7 +302,7 @@ const App: React.FC = () => {
   const LoadingScreen = () => (
     <div className="h-full flex flex-col justify-center items-center p-12 bg-white text-center">
       <Logo size={90} />
-      <div className="mt-12"><LoadingIndicator message="Doing some magic..." /></div>
+      <div className="mt-12"><LoadingIndicator message="Doing Some Magic..." /></div>
     </div>
   );
 
@@ -314,8 +310,7 @@ const App: React.FC = () => {
     <div className="h-full flex flex-col bg-white">
       <div className="p-8 border-b border-slate-100 flex justify-between items-end bg-white sticky top-0 z-10">
         <div>
-          <h2 className="font-serif text-3xl">Your Flight</h2>
-          <p className="text-pink-600 text-[10px] font-black uppercase tracking-[0.2em] mt-2">Recommendation</p>
+          <h2 className="font-serif text-3xl text-slate-900">Your Flight</h2>
         </div>
         <button onClick={() => setCurrentScreen(Screen.PROFILE)} className="w-12 h-12 rounded-2xl overflow-hidden border-2 border-pink-50 transition-transform active:scale-90">
           <img src={user?.photoURL} alt="" className="w-full h-full object-cover" />
@@ -344,14 +339,38 @@ const App: React.FC = () => {
         ))}
       </div>
       <div className="p-8 bg-white border-t border-slate-100">
-        <Button onClick={() => setCurrentScreen(Screen.TRIP_GUIDE)}>Start Guide</Button>
+        <Button onClick={() => setCurrentScreen(Screen.PROFILE)}>View Journal & Rates</Button>
       </div>
     </div>
   );
 
   const ProfileScreen = () => {
+    const [tab, setTab] = useState<'settings' | 'journal'>('journal');
     const [isEditing, setIsEditing] = useState(false);
     const [editData, setEditData] = useState(user);
+
+    const updateJournal = (strainName: string, updates: Partial<JournalEntry>) => {
+      if (!user) return;
+      const newJournal = { ...user.journal };
+      newJournal[strainName] = { ...newJournal[strainName], ...updates };
+      setUser({ ...user, journal: newJournal });
+    };
+
+    const updateRating = (strainName: string, effect: string, score: number) => {
+      if (!user) return;
+      const entry = user.journal[strainName];
+      const newRatings = { ...entry.ratings };
+      newRatings[effect] = { ...newRatings[effect], score };
+      updateJournal(strainName, { ratings: newRatings });
+    };
+
+    const updateComment = (strainName: string, effect: string, comment: string) => {
+      if (!user) return;
+      const entry = user.journal[strainName];
+      const newRatings = { ...entry.ratings };
+      newRatings[effect] = { ...newRatings[effect], comment };
+      updateJournal(strainName, { ratings: newRatings });
+    };
 
     const handleSave = () => {
       if (editData) setUser(editData);
@@ -360,143 +379,124 @@ const App: React.FC = () => {
 
     return (
       <div className="h-full flex flex-col bg-white overflow-hidden">
-        <div className="p-10 bg-slate-900 text-white text-center relative overflow-hidden">
+        {/* header */}
+        <div className="p-8 bg-slate-900 text-white text-center relative overflow-hidden">
           <button onClick={() => setCurrentScreen(Screen.FLIGHT)} className="absolute left-8 top-10 text-white/50 hover:text-white transition-colors">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
           </button>
-          <div className="w-28 h-28 rounded-[2.5rem] border-4 border-white/10 mx-auto mb-6 overflow-hidden shadow-2xl">
-            <img src={editData?.photoURL} alt="" className="w-full h-full object-cover"/>
+          <div className="w-20 h-20 rounded-[1.8rem] border-4 border-white/10 mx-auto mb-4 overflow-hidden shadow-2xl">
+            <img src={user?.photoURL} alt="" className="w-full h-full object-cover"/>
           </div>
-          <h2 className="font-serif text-3xl mb-1">{user?.displayName}</h2>
-          <p className="text-white/40 text-xs font-medium tracking-widest uppercase">{user?.email}</p>
-        </div>
-
-        <div className="flex-1 p-8 space-y-8 overflow-y-auto no-scrollbar">
-          {isEditing ? (
-            <div className="space-y-6">
-              <div className="space-y-3">
-                <label className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">Name</label>
-                <input 
-                  value={editData?.displayName} 
-                  onChange={e => setEditData(d => d ? ({...d, displayName: e.target.value}) : null)} 
-                  className="w-full p-5 bg-slate-50 border border-slate-100 rounded-3xl outline-none focus:border-pink-500 transition-all font-medium"
-                />
-              </div>
-              <div className="space-y-3">
-                <label className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">Photo</label>
-                <input 
-                  value={editData?.photoURL} 
-                  onChange={e => setEditData(d => d ? ({...d, photoURL: e.target.value}) : null)} 
-                  className="w-full p-5 bg-slate-50 border border-slate-100 rounded-3xl outline-none focus:border-pink-500 transition-all text-xs font-mono"
-                />
-              </div>
-              <div className="flex gap-4 pt-4">
-                <Button onClick={handleSave}>Save</Button>
-                <Button variant="outline" onClick={() => setIsEditing(false)}>Cancel</Button>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-10">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
-                  <span className="text-[10px] font-black text-slate-300 uppercase block mb-2 tracking-widest">Age</span>
-                  <span className="font-bold text-2xl text-slate-800">{user?.age || '—'}</span>
-                </div>
-                <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
-                  <span className="text-[10px] font-black text-slate-300 uppercase block mb-2 tracking-widest">Sex</span>
-                  <span className="font-bold text-2xl text-slate-800">{user?.sex || '—'}</span>
-                </div>
-              </div>
-              <div>
-                <h4 className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] mb-5">Goals</h4>
-                <div className="flex flex-wrap gap-2">
-                  {user?.effects.map(e => (
-                    <span key={e} className="bg-pink-50 text-pink-600 px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-sm">
-                      {e}
-                    </span>
-                  ))}
-                </div>
-              </div>
-              <div className="space-y-3 pt-6">
-                <Button variant="outline" onClick={() => setIsEditing(true)}>Edit</Button>
-                <Button variant="ghost" onClick={() => { setUser(null); setCurrentScreen(Screen.AUTH); }}>Sign Out</Button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  const TripGuideScreen = () => {
-    const [messages, setMessages] = useState<{role: 'user'|'assistant', content: string}[]>([]);
-    const [input, setInput] = useState('');
-    const [isThinking, setIsThinking] = useState(false);
-
-    const handleSend = async () => {
-      if (!input.trim() || !user) return;
-      const text = input;
-      setInput('');
-      setMessages(m => [...m, {role:'user', content: text}]);
-      setIsThinking(true);
-      try {
-        const res = await getTripGuideResponse(text, messages, user.effects);
-        setMessages(m => [...m, {role:'assistant', content: res}]);
-      } catch (e) {
-        setMessages(m => [...m, {role:'assistant', content: "Connection Issue. Try again."}]);
-      } finally {
-        setIsThinking(false);
-      }
-    };
-
-    return (
-      <div className="h-full flex flex-col bg-slate-900 text-white overflow-hidden">
-        <div className="p-8 border-b border-white/5 flex justify-between items-center bg-slate-900/80 backdrop-blur-md sticky top-0 z-10">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-full bg-pink-600 flex items-center justify-center">🌸</div>
-            <div>
-              <h3 className="font-bold text-sm tracking-wide">Trip Guide</h3>
-              <p className="text-[8px] text-emerald-400 font-black uppercase tracking-[0.2em]">Support</p>
-            </div>
-          </div>
-          <button onClick={() => setCurrentScreen(Screen.FLIGHT)} className="text-white/30">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
-          </button>
-        </div>
-        <div className="flex-1 overflow-y-auto p-8 space-y-8 no-scrollbar">
-          {messages.length === 0 && (
-            <div className="py-20 text-center">
-              <p className="text-white/20 text-sm italic max-w-[200px] mx-auto leading-relaxed">"How are you feeling as you start your session?"</p>
-            </div>
-          )}
-          {messages.map((m, i) => (
-            <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[85%] p-5 rounded-[2rem] text-sm leading-relaxed ${m.role === 'user' ? 'bg-pink-600 text-white rounded-tr-none' : 'bg-white/10 text-slate-100 rounded-tl-none'}`}>
-                {m.content}
-              </div>
-            </div>
-          ))}
-          {isThinking && (
-            <div className="flex justify-start">
-              <div className="bg-white/5 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest text-white/30 animate-pulse">
-                Thinking...
-              </div>
-            </div>
-          )}
-        </div>
-        <div className="p-8 bg-slate-950/80 border-t border-white/5">
-          <div className="flex gap-3">
-            <input 
-              value={input} 
-              onChange={e=>setInput(e.target.value)} 
-              onKeyDown={e=>e.key==='Enter'&&handleSend()} 
-              className="flex-1 bg-white/5 border border-white/10 rounded-3xl py-4 px-6 text-sm outline-none focus:border-pink-500 transition-all placeholder:text-white/20" 
-              placeholder="Message your guide..."
-            />
-            <button onClick={handleSend} disabled={!input.trim()} className="w-14 h-14 bg-pink-600 rounded-2xl flex items-center justify-center shadow-lg active:scale-90 transition-transform disabled:opacity-50">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          <h2 className="font-serif text-2xl mb-1">{user?.displayName}</h2>
+          
+          {/* tabs */}
+          <div className="mt-8 flex bg-white/5 rounded-2xl p-1 relative z-10">
+            <button 
+              onClick={() => setTab('journal')} 
+              className={`flex-1 py-2 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${tab === 'journal' ? 'bg-white text-slate-900 shadow-lg' : 'text-white/40'}`}
+            >
+              Journal
+            </button>
+            <button 
+              onClick={() => setTab('settings')} 
+              className={`flex-1 py-2 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${tab === 'settings' ? 'bg-white text-slate-900 shadow-lg' : 'text-white/40'}`}
+            >
+              Settings
             </button>
           </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto no-scrollbar">
+          {tab === 'settings' ? (
+            <div className="p-8 space-y-8">
+              {isEditing ? (
+                <div className="space-y-6">
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">Name</label>
+                    <input 
+                      value={editData?.displayName} 
+                      onChange={e => setEditData(d => d ? ({...d, displayName: e.target.value}) : null)} 
+                      className="w-full p-5 bg-slate-50 border border-slate-100 rounded-3xl outline-none focus:border-pink-500 transition-all font-medium"
+                    />
+                  </div>
+                  <div className="flex gap-4 pt-4">
+                    <Button onClick={handleSave}>Save</Button>
+                    <Button variant="outline" onClick={() => setIsEditing(false)}>Cancel</Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-10">
+                   <div className="grid grid-cols-2 gap-4">
+                    <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
+                      <span className="text-[10px] font-black text-slate-300 uppercase block mb-2 tracking-widest">Age</span>
+                      <span className="font-bold text-2xl text-slate-800">{user?.age || '—'}</span>
+                    </div>
+                    <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
+                      <span className="text-[10px] font-black text-slate-300 uppercase block mb-2 tracking-widest">Sex</span>
+                      <span className="font-bold text-2xl text-slate-800">{user?.sex || '—'}</span>
+                    </div>
+                  </div>
+                  <div className="space-y-3 pt-6">
+                    <Button variant="outline" onClick={() => setIsEditing(true)}>Edit</Button>
+                    <Button variant="ghost" onClick={() => { setUser(null); setCurrentScreen(Screen.AUTH); logout(); }}>Sign Out</Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="p-6 space-y-6">
+              <h4 className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] px-2">Current Flight</h4>
+              {flight.map((s, i) => {
+                const entry = user?.journal[s.name];
+                if (!entry) return null;
+                return (
+                  <div key={i} className={`p-6 rounded-[2.5rem] border-2 transition-all ${entry.acquired ? 'border-pink-100 bg-white shadow-md' : 'border-slate-50 bg-slate-50 opacity-60'}`}>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <input 
+                          type="checkbox" 
+                          checked={entry.acquired} 
+                          onChange={(e) => updateJournal(s.name, { acquired: e.target.checked })}
+                          className="w-5 h-5 accent-pink-600 rounded-lg"
+                        />
+                        <h3 className="font-bold text-slate-900">{s.name}</h3>
+                      </div>
+                      {entry.acquired && <span className="text-[8px] bg-pink-600 text-white px-2 py-1 rounded-full font-black uppercase">Tried</span>}
+                    </div>
+
+                    {entry.acquired && (
+                      <div className="space-y-6 mt-6 pt-6 border-t border-pink-50 animate-in fade-in">
+                        {user?.effects.map(effect => (
+                          <div key={effect} className="space-y-3">
+                            <div className="flex justify-between items-center">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest capitalize">{effect}</span>
+                              <div className="flex gap-1">
+                                {[1, 2, 3, 4, 5].map(star => (
+                                  <button 
+                                    key={star} 
+                                    onClick={() => updateRating(s.name, effect, star)}
+                                    className={`text-lg transition-transform active:scale-125 ${star <= entry.ratings[effect].score ? 'text-pink-600' : 'text-slate-200'}`}
+                                  >
+                                    ★
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                            <textarea 
+                              placeholder="Notes..."
+                              value={entry.ratings[effect].comment}
+                              onChange={(e) => updateComment(s.name, effect, e.target.value)}
+                              className="w-full p-4 bg-slate-50 rounded-2xl text-xs outline-none focus:bg-white focus:border-pink-200 border border-transparent transition-all resize-none h-20"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -506,9 +506,9 @@ const App: React.FC = () => {
     <div className="fixed inset-0 bg-slate-100 flex items-center justify-center p-0 md:p-10">
       <div className="w-full h-full md:w-[375px] md:h-[667px] bg-white md:rounded-[3.5rem] shadow-2xl overflow-hidden relative flex flex-col border border-slate-200/50">
         {renderScreen(currentScreen, {
-          AuthScreen, AgeVerifyScreen, OnboardingScreen, LocationScreen, 
+          AuthScreen, OnboardingScreen, LocationScreen, 
           EffectsScreen, DispensaryListScreen, LoadingScreen, FlightScreen, 
-          TripGuideScreen, ProfileScreen 
+          ProfileScreen, BlockedScreen
         })}
       </div>
     </div>
@@ -518,15 +518,14 @@ const App: React.FC = () => {
 function renderScreen(current: Screen, components: any) {
   switch (current) {
     case Screen.AUTH: return <components.AuthScreen />;
-    case Screen.AGE_VERIFY: return <components.AgeVerifyScreen />;
     case Screen.ONBOARDING: return <components.OnboardingScreen />;
     case Screen.LOCATION: return <components.LocationScreen />;
     case Screen.EFFECTS: return <components.EffectsScreen />;
     case Screen.DISPENSARIES: return <components.DispensaryListScreen />;
     case Screen.LOADING: return <components.LoadingScreen />;
     case Screen.FLIGHT: return <components.FlightScreen />;
-    case Screen.TRIP_GUIDE: return <components.TripGuideScreen />;
     case Screen.PROFILE: return <components.ProfileScreen />;
+    case Screen.BLOCKED: return <components.BlockedScreen />;
     default: return <components.AuthScreen />;
   }
 }

@@ -3,16 +3,20 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { Dispensary, Strain } from "./types";
 
 export const findDispensaries = async (lat: number, lng: number): Promise<Dispensary[]> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
     const response = await ai.models.generateContent({
+      // maps grounding only supported by Gemini 2.5 models
       model: "gemini-2.5-flash",
       contents: `Find the top 3 highly rated cannabis dispensaries near coordinates latitude ${lat}, longitude ${lng}. Provide their names and website links.`,
       config: {
         tools: [{ googleMaps: {} }],
         toolConfig: {
           retrievalConfig: {
-            latLng: { latitude: lat, longitude: lng }
+            latLng: {
+              latitude: lat,
+              longitude: lng
+            }
           }
         },
       },
@@ -33,25 +37,23 @@ export const findDispensaries = async (lat: number, lng: number): Promise<Dispen
           uri: chunk.maps.uri
         }));
     }
-
-    // Fallback data
+    
     return [
-      { id: '1', name: 'Elevated Greens', address: '123 Market St', rating: 4.8, reviewsCount: 124, distance: '0.8 mi' },
-      { id: '2', name: 'The Bloom Room', address: '456 Castro St', rating: 4.7, reviewsCount: 312, distance: '1.2 mi' },
-      { id: '3', name: 'Green Oasis', address: '789 Hayes St', rating: 4.9, reviewsCount: 89, distance: '2.1 mi' },
+      { id: '1', name: 'Fake One', address: 'Nowhere St', rating: 4.8, reviewsCount: 124, distance: '? mi' },
+      { id: '2', name: 'Unreal Thing', address: 'Nowhere Rd', rating: 4.7, reviewsCount: 312, distance: '? mi' },
+      { id: '3', name: 'Imaginary Place', address: 'Nowhere Pl', rating: 4.9, reviewsCount: 89, distance: '? mi' },
     ];
   } catch (error) {
-    console.error("Error finding dispensaries:", error);
-    // Mock data
+    console.error("Error:", error);
     return [
-      { id: 'm1', name: 'Premium Greens (Demo)', address: 'Main St', rating: 4.9, reviewsCount: 200, distance: '0.5 mi' },
-      { id: 'm2', name: 'Leafy Life (Demo)', address: 'High St', rating: 4.7, reviewsCount: 150, distance: '1.1 mi' },
+      { id: 'm1', name: 'Fake (Demo)', address: 'Not Real St', rating: 4.9, reviewsCount: 200, distance: '? mi' },
+      { id: 'm2', name: 'Unreal (Demo)', address: 'Made Up Rc', rating: 4.7, reviewsCount: 150, distance: '? mi' },
     ];
   }
 };
 
 export const generateFlight = async (effects: string[]): Promise<Strain[]> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const prompt = `Curate a "cannabis flight" of 3 distinct strains that help achieve these effects: ${effects.join(', ')}. 
   For each strain, provide: name, brand, THC%, CBD%, list of primary terpenes, and a short 1-sentence description of the experience.`;
 
@@ -79,20 +81,4 @@ export const generateFlight = async (effects: string[]): Promise<Strain[]> => {
   });
 
   return JSON.parse(response.text || '[]');
-};
-
-export const getTripGuideResponse = async (userMessage: string, history: {role: string, content: string}[], effects: string[]) => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
-  const chat = ai.chats.create({
-    model: 'gemini-3-flash-preview',
-    config: {
-      systemInstruction: `You are the Blossom Trip Guide, a friendly and knowledgeable AI companion for cannabis users. 
-      The user is currently experiencing or seeking effects: ${effects.join(', ')}.
-      Your goal is to provide activity suggestions, safety grounding, and mindful exploration tips.
-      Keep responses concise, empathetic, and premium in tone.`,
-    },
-  });
-
-  const response = await chat.sendMessage({ message: userMessage });
-  return response.text;
 };

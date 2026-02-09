@@ -1,4 +1,13 @@
 
+export interface JournalEntry {
+  strainName: string;
+  acquired: boolean;
+  ratings: Record<string, {
+    score: number;
+    comment: string;
+  }>;
+}
+
 export interface UserData {
   uid: string;
   email: string;
@@ -12,6 +21,7 @@ export interface UserData {
     address?: string;
   };
   effects: string[];
+  journal: Record<string, JournalEntry>;
 }
 
 export interface Dispensary {
@@ -35,13 +45,12 @@ export interface Strain {
 
 export enum Screen {
   AUTH = 'auth',
-  AGE_VERIFY = 'age-verify',
   ONBOARDING = 'onboarding',
   LOCATION = 'location',
   EFFECTS = 'effects',
   DISPENSARIES = 'dispensaries',
   LOADING = 'loading',
   FLIGHT = 'flight',
-  TRIP_GUIDE = 'trip-guide',
-  PROFILE = 'profile'
+  PROFILE = 'profile',
+  BLOCKED = 'blocked'
 }

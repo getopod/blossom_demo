@@ -7,9 +7,9 @@ import {
   OAuthProvider,
   signInWithPopup,
   signOut,
-  onAuthStateChanged,
-  User
+  onAuthStateChanged
 } from 'firebase/auth';
+import type { User } from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: process.env.API_KEY,
