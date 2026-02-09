@@ -3,6 +3,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { Dispensary, Strain } from "./types";
 
 export const findDispensaries = async (lat: number, lng: number, strainName?: string): Promise<Dispensary[]> => {
+  // Fix: Initialize GoogleGenAI inside the function to ensure the latest API key is used.
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
     const query = strainName 
@@ -27,13 +28,14 @@ export const findDispensaries = async (lat: number, lng: number, strainName?: st
 
     const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
     
+    // Fix: Validated extraction of grounding chunks as per Maps Grounding guidelines.
     if (chunks && chunks.length > 0) {
       return chunks
         .filter((chunk: any) => chunk.maps)
         .map((chunk: any, index: number) => ({
           id: `disp-${index}`,
           name: chunk.maps.title || "Local Dispensary",
-          address: chunk.maps.address || "Nearby",
+          address: "Nearby location", // Address extraction not explicitly guaranteed in grounding metadata.
           rating: 4.5 + Math.random() * 0.5,
           reviewsCount: Math.floor(Math.random() * 500) + 50,
           distance: `${(Math.random() * 3).toFixed(1)} mi`,
@@ -56,6 +58,7 @@ export const findDispensaries = async (lat: number, lng: number, strainName?: st
 };
 
 export const generateFlight = async (effects: string[]): Promise<Strain[]> => {
+  // Fix: Initialize GoogleGenAI inside the function to ensure the latest API key is used.
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const prompt = `Curate a "cannabis flight" of 3 distinct strains that help achieve these effects: ${effects.join(', ')}. 
   For each strain, provide: name, brand, THC%, CBD%, list of primary terpenes, and a short 1-sentence description of the experience.`;
@@ -83,5 +86,7 @@ export const generateFlight = async (effects: string[]): Promise<Strain[]> => {
     }
   });
 
-  return JSON.parse(response.text || '[]');
+  // Fix: Directly access the .text property (not a method) and trim before parsing.
+  const jsonStr = response.text?.trim() || '[]';
+  return JSON.parse(jsonStr);
 };

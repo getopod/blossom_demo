@@ -1,5 +1,6 @@
 
 import { initializeApp } from 'firebase/app';
+// Fix: Separated value and type imports from firebase/auth to improve compatibility and fix "no exported member" errors.
 import { 
   getAuth, 
   GoogleAuthProvider, 
@@ -7,9 +8,9 @@ import {
   OAuthProvider,
   signInWithPopup,
   signOut,
-  onAuthStateChanged,
-  type User
+  onAuthStateChanged
 } from 'firebase/auth';
+import type { User } from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: process.env.API_KEY,
@@ -23,8 +24,9 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 
-export const googleProvider = new GoogleAuthProvider('google.com');
-export const facebookProvider = new FacebookAuthProvider('facebook.com');
+// Fix: In Firebase modular SDK, GoogleAuthProvider and FacebookAuthProvider constructors do not take arguments.
+export const googleProvider = new GoogleAuthProvider();
+export const facebookProvider = new FacebookAuthProvider();
 export const appleProvider = new OAuthProvider('apple.com');
 
 export const signInWithGoogle = () => signInWithPopup(auth, googleProvider);

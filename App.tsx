@@ -4,7 +4,7 @@ import { Screen, UserData, Dispensary, Strain, JournalEntry } from './types';
 import { subscribeToAuthChanges, signInWithGoogle, logout } from './firebase';
 import { findDispensaries, generateFlight } from './geminiService';
 
-// --- Static Data ---
+// static
 
 const TERPENE_DATA: Record<string, { desc: string, icon: string }> = {
   "Myrcene": { desc: "Herbal & earthy. Promotes relaxation and 'couch-lock' effects.", icon: "🌿" },
@@ -17,7 +17,14 @@ const TERPENE_DATA: Record<string, { desc: string, icon: string }> = {
   "Ocimene": { desc: "Sweet, woody, & herbal. Associated with antiviral and decongestant effects.", icon: "🍃" }
 };
 
-// --- Components ---
+const POPULAR_STRAINS = [
+  "Blue Dream", "OG Kush", "Sour Diesel", "Girl Scout Cookies", "Jack Herer", 
+  "Northern Lights", "White Widow", "Purple Haze", "Gorilla Glue #4", "Granddaddy Purple",
+  "Bubba Kush", "Amnesia Haze", "Wedding Cake", "Pineapple Express", "Green Crack",
+  "Bruce Banner", "Durban Poison", "Skywalker OG", "Gelato", "Zkittlez"
+];
+
+// components
 
 const LoadingIndicator: React.FC<{ message?: string; dark?: boolean }> = ({ message = "Loading...", dark = false }) => (
   <div className="flex flex-col items-center justify-center space-y-4">
@@ -70,12 +77,11 @@ const App: React.FC = () => {
   const [flight, setFlight] = useState<Strain[]>([]);
   const [profileTab, setProfileTab] = useState<'settings' | 'journal'>('journal');
   const [searchingForStrain, setSearchingForStrain] = useState<string | null>(null);
+  const [strainSearchQuery, setStrainSearchQuery] = useState('');
 
   useEffect(() => {
     const unsubscribe = subscribeToAuthChanges((firebaseUser) => {
       if (firebaseUser) {
-        // Mocking persistent user data check
-        // In a real app, we'd fetch from Firestore here
         const existingData: Partial<UserData> = JSON.parse(localStorage.getItem(`blossom_${firebaseUser.uid}`) || '{}');
         
         const userData: UserData = {
@@ -92,7 +98,6 @@ const App: React.FC = () => {
         
         setUser(userData);
 
-        // Flow Skipping Logic
         if (!userData.age || !userData.sex) {
           setCurrentScreen(Screen.ONBOARDING);
         } else {
@@ -103,7 +108,6 @@ const App: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
-  // Save user data to "persist" bio/settings for demo
   useEffect(() => {
     if (user && user.uid) {
       localStorage.setItem(`blossom_${user.uid}`, JSON.stringify(user));
@@ -187,34 +191,37 @@ const App: React.FC = () => {
     }
   };
 
-  const handleBuyStrain = async (strain: Strain) => {
+  const handleBuyStrain = async (strain: Strain | string) => {
+    const strainName = typeof strain === 'string' ? strain : strain.name;
     if (!user?.location) {
       setCurrentScreen(Screen.LOCATION);
       return;
     }
-    setSearchingForStrain(strain.name);
+    setSearchingForStrain(strainName);
     setLoading(true);
     setCurrentScreen(Screen.LOADING);
     try {
-      const nearby = await findDispensaries(user.location.lat, user.location.lng, strain.name);
+      const nearby = await findDispensaries(user.location.lat, user.location.lng, strainName);
       setDispensaries(nearby);
       setCurrentScreen(Screen.DISPENSARIES);
     } catch (e) {
       console.error(e);
-      setCurrentScreen(Screen.FLIGHT);
+      setCurrentScreen(Screen.HOME);
     } finally {
       setLoading(false);
     }
   };
 
-  // --- Screens ---
+  // screens
 
   const AuthScreen = () => (
     <div className="h-full flex flex-col justify-center items-center px-10 bg-white text-center">
       <div className="mb-10"><Logo size={110} /></div>
       <h1 className="font-serif text-5xl mb-4 tracking-tight text-slate-900">Blossom</h1>
-      <p className="text-slate-400 mb-12 text-sm leading-relaxed max-w-[240px]">Personalized Cannabis Curation.</p>
       <div className="w-full space-y-3">
+        <Button onClick={handleDemoMode} variant="demo">
+          Demo
+        </Button>      
         <Button onClick={() => signInWithGoogle().catch(handleDemoMode)} variant="outline">
           <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt=""/>
           Continue with Google
@@ -227,36 +234,82 @@ const App: React.FC = () => {
           <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/apple.svg" className="w-5 h-5" alt=""/>
           Continue with Apple
         </Button>                
-        <Button onClick={handleDemoMode} variant="demo">
-          Demo
-        </Button>
-        <Button onClick={() => setCurrentScreen(Screen.TERPENES_LIBRARY)} variant="ghost">
-          Terpenes?
-        </Button>
-      </div>
-    </div>
-  );
-
-  const HomeScreen = () => (
-    <div className="h-full flex flex-col justify-center items-center px-10 bg-white text-center">
-      <div className="mb-10"><Logo size={90} /></div>
-      <h1 className="font-serif text-4xl mb-2 tracking-tight text-slate-900">Welcome Back!</h1>      
-      <div className="w-full space-y-4 grid grid-cols-3">
-        <Button onClick={() => setCurrentScreen(Screen.EFFECTS)} variant="primary">
-          Explore
-        </Button>
-        <Button onClick={() => {
-          setProfileTab('journal');
-          setCurrentScreen(Screen.PROFILE);
-        }} variant="outline">
-          Journal
-        </Button>
-        <Button onClick={() => setCurrentScreen(Screen.TERPENES_LIBRARY)} variant="ghost">
+        <Button onClick={() => setCurrentScreen(Screen.TERPENES_LIBRARY)} variant="outline">
           Terpenes
         </Button>
       </div>
     </div>
   );
+
+  const HomeScreen = () => {
+    const filteredStrains = strainSearchQuery 
+      ? POPULAR_STRAINS.filter(s => s.includes(strainSearchQuery)) 
+      : [];
+
+    return (
+      <div className="h-full flex flex-col bg-white overflow-hidden">
+        <div className="p-6 bg-white border-b border-slate-50 sticky top-0 z-10 shadow-sm">
+          <div className="relative">
+            <input 
+              type="text" 
+              placeholder="Strains..." 
+              value={strainSearchQuery}
+              onChange={(e) => setStrainSearchQuery(e.target.value)}
+              className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:border-pink-500 focus:bg-white transition-all text-sm font-medium"
+            />
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+            </div>
+            {strainSearchQuery && (
+              <button 
+                onClick={() => setStrainSearchQuery('')}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+            )}
+          </div>
+          
+          {strainSearchQuery && (
+            <div className="mt-4 max-h-48 overflow-y-auto no-scrollbar space-y-2 animate-in slide-in-from-top-2">
+              {filteredStrains.length > 0 ? (
+                filteredStrains.map(s => (
+                  <button 
+                    key={s} 
+                    onClick={() => handleBuyStrain(s)}
+                    className="w-full p-4 flex items-center justify-between bg-pink-50/50 hover:bg-pink-50 rounded-xl transition-colors text-left"
+                  >
+                    <span className="font-bold text-slate-800 text-sm">{s}</span>
+                    <span className="text-pink-500 font-black text-[9px] uppercase tracking-widest">Find Near Me</span>
+                  </button>
+                ))
+              ) : (
+                <div className="p-4 text-center text-slate-300 text-xs italic">No matches (Case-sensitive)</div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="flex-1 flex flex-col justify-center items-center px-10 text-center">
+          <div className="mb-10"><Logo size={90} /></div>   
+          <div className="w-full space-y-4">
+            <Button onClick={() => setCurrentScreen(Screen.EFFECTS)} variant="primary">
+              Explore
+            </Button>
+            <Button onClick={() => {
+              setProfileTab('journal');
+              setCurrentScreen(Screen.PROFILE);
+            }} variant="outline">
+              Journal
+            </Button>
+            <Button onClick={() => setCurrentScreen(Screen.TERPENES_LIBRARY)} variant="outline">
+              Terpenes
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   const FeedbackScreen = () => {
     const [category, setCategory] = useState<string>('Bug');
@@ -275,7 +328,7 @@ const App: React.FC = () => {
       return (
         <div className="h-full flex flex-col justify-center items-center px-10 text-center bg-white">
           <div className="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mb-8 text-3xl">✨</div>
-          <h2 className="font-serif text-3xl mb-4 text-slate-900">Sent!</h2>
+          <h2 className="font-serif text-3xl mb-4 text-slate-900">Sent</h2>
           <Button onClick={() => setCurrentScreen(Screen.FLIGHT)} variant="secondary">Back</Button>
         </div>
       );
@@ -318,15 +371,15 @@ const App: React.FC = () => {
   const TerpenesLibraryScreen = () => (
     <div className="h-full flex flex-col bg-white overflow-hidden">
       <div className="p-8 border-b border-slate-100 flex items-center justify-between sticky top-0 z-10 bg-white">
-        <h2 className="font-serif text-3xl text-slate-900">Terpene Guide</h2>
-        <button onClick={() => setCurrentScreen(user ? Screen.HOME : Screen.AUTH)} className="w-10 h-10 flex items-center justify-center rounded-full bg-slate-50 text-slate-400">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        <h2 className="font-serif text-3xl text-slate-900">Terpines</h2>
+        <button onClick={() => setCurrentScreen(user ? Screen.HOME : Screen.AUTH)} className="w-9 h-9 flex items-center justify-center rounded-full bg-slate-50 text-slate-400">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
         </button>
       </div>
-      <div className="flex-1 overflow-y-auto p-6 space-y-4 no-scrollbar">
+      <div className="flex-1 overflow-y-auto p-3 space-y-3 no-scrollbar">
         {Object.entries(TERPENE_DATA).map(([name, data]) => (
-          <div key={name} className="p-6 rounded-[2.5rem] bg-slate-50 border border-slate-100">
-            <div className="flex items-center gap-4 mb-3">
+          <div key={name} className="p-4 rounded-[2.5rem] bg-slate-50 border border-slate-100">
+            <div className="flex items-center gap-2 mb-4">
               <span className="text-3xl">{data.icon}</span>
               <h3 className="text-xl font-bold text-slate-800">{name}</h3>
             </div>
@@ -485,7 +538,7 @@ const App: React.FC = () => {
 
   const FlightScreen = () => {
     const [expandedStrains, setExpandedStrains] = useState<Set<number>>(new Set());
-    const [expandedTerpene, setExpandedTerpene] = useState<string | null>(null);
+    const [hoveredTerpene, setHoveredTerpene] = useState<string | null>(null);
 
     const toggleStrain = (index: number) => {
       const next = new Set(expandedStrains);
@@ -532,21 +585,25 @@ const App: React.FC = () => {
                     <div className="flex flex-wrap gap-2 mb-4">
                       {s.terpenes.map(t => {
                         const info = TERPENE_DATA[t] || { icon: "✨", desc: "Entourage effect terpene." };
-                        const isTerpExp = expandedTerpene === `${i}-${t}`;
+                        const isHovered = hoveredTerpene === `${i}-${t}`;
                         return (
-                          <div key={t} className="flex flex-col">
+                          <div key={t} className="relative">
                             <button 
-                              onClick={() => setExpandedTerpene(isTerpExp ? null : `${i}-${t}`)}
-                              className={`px-3 py-2 rounded-xl font-bold text-[9px] uppercase tracking-widest border transition-all ${isTerpExp ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-500 border-slate-100 shadow-sm'}`}
+                              onMouseEnter={() => setHoveredTerpene(`${i}-${t}`)}
+                              onMouseLeave={() => setHoveredTerpene(null)}
+                              className={`px-3 py-2 rounded-xl font-bold text-[9px] uppercase tracking-widest border transition-all ${isHovered ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-500 border-slate-100 shadow-sm'}`}
                             >
                               {t}
                             </button>
-                            {isTerpExp && (
-                              <div className="mt-2 p-3 bg-white border border-slate-100 rounded-xl shadow-lg z-20 max-w-[200px] animate-in zoom-in-95">
-                                <p className="text-[10px] text-slate-600 leading-normal">
-                                  <span className="mr-1">{info.icon}</span>
-                                  {info.desc}
-                                </p>
+                            {isHovered && (
+                              <div className="absolute bottom-full left-0 mb-2 p-3 bg-white border border-slate-100 rounded-xl shadow-xl z-50 w-48 animate-in zoom-in-95 fade-in slide-in-from-bottom-2">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-lg">{info.icon}</span>
+                                  <span className="font-bold text-[10px] uppercase text-slate-800">{t}</span>
+                                </div>
+                                <p className="text-[10px] text-slate-500 leading-normal">{info.desc}</p>
+                                {/* Arrow */}
+                                <div className="absolute top-full left-4 -mt-1 border-4 border-transparent border-t-white"></div>
                               </div>
                             )}
                           </div>
@@ -566,7 +623,7 @@ const App: React.FC = () => {
         <div className="p-8 bg-white border-t border-slate-100">
           <div className="flex gap-3">
             <Button onClick={() => setCurrentScreen(Screen.HOME)} variant="outline" className="flex-1 py-3 px-0 text-xs">
-              Home
+              Again
             </Button>
             <Button onClick={() => {
               setProfileTab('journal');
@@ -666,7 +723,7 @@ const App: React.FC = () => {
                     <input 
                       value={editData?.displayName} 
                       onChange={e => setEditData(d => d ? ({...d, displayName: e.target.value}) : null)} 
-                      className="w-full p-5 bg-slate-50 border border-slate-100 rounded-3xl outline-none focus:border-pink-500 transition-all font-medium"
+                      className="w-full p-5 bg-slate-50 border border-slate-100 rounded-3xl outline-none focus:border-pink-500 text-sm font-medium"
                     />
                   </div>
                   <div className="flex gap-4 pt-4">
@@ -699,7 +756,7 @@ const App: React.FC = () => {
               <div className="relative mb-4">
                 <input 
                   type="text" 
-                  placeholder="Search strains..." 
+                  placeholder="Search..." 
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
                   className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-3xl outline-none focus:border-pink-500 text-sm"
@@ -712,7 +769,6 @@ const App: React.FC = () => {
               {filteredJournal.map((s, i) => {
                 const entry = user?.journal[s.name];
                 if (!entry) return null;
-                const isDetExpanded = expandedDetails === s.name;
 
                 return (
                   <div key={i} className={`p-6 rounded-[2.5rem] border-2 transition-all ${entry.acquired ? 'border-pink-100 bg-white shadow-md' : 'border-slate-50 bg-slate-50 opacity-60'}`}>
